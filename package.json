@@ -1,0 +1,68 @@
+{
+  "name": "addisai",
+  "version": "0.1.0",
+  "description": "Official Addis AI SDK for Node.js — voice (TTS), chat/LLM with system prompts, personas and function calling, speech-to-text, and translation for Amharic and Afan Oromo.",
+  "keywords": [
+    "addis",
+    "addisai",
+    "amharic",
+    "afan-oromo",
+    "tts",
+    "text-to-speech",
+    "voice",
+    "llm",
+    "speech-to-text",
+    "translation",
+    "ai"
+  ],
+  "license": "MIT",
+  "author": "Addis AI",
+  "homepage": "https://addisai.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Addis-AI-Org/addisai-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Addis-AI-Org/addisai-js/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
