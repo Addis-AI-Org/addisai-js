@@ -1,7 +1,7 @@
 import { camelize } from "../core/camelize.js";
 import { ulid } from "../core/idempotency.js";
 import { NotSupportedError } from "../core/errors.js";
-import { CursorPage, type Page } from "../core/pagination.js";
+import { CursorPage, CursorPagePromise, type Page } from "../core/pagination.js";
 import { type RequestOptions, type Transport, unwrapData } from "../core/request.js";
 import { AddisClip, type ClipData } from "../lib/clip.js";
 import type { AudioStream } from "../lib/audio-stream.js";
@@ -140,8 +140,12 @@ export class Voice {
 export class Clips {
   constructor(private readonly transport: Transport) {}
 
-  /** List generated clips. Async-iterable across all pages. */
-  async list(params: ClipListParams = {}, opts: RequestOptions = {}): Promise<CursorPage<AddisClip>> {
+  /**
+   * List generated clips. The returned value is both awaitable
+   * (`const page = await clips.list()`) and async-iterable
+   * (`for await (const clip of clips.list())` walks every page).
+   */
+  list(params: ClipListParams = {}, opts: RequestOptions = {}): CursorPagePromise<AddisClip> {
     const fetchPage = async (cursor?: string): Promise<Page<AddisClip>> => {
       const query: Record<string, unknown> = {
         limit: params.limit,
@@ -159,8 +163,10 @@ export class Clips {
         limit: body.meta?.limit ?? null,
       };
     };
-    const first = await fetchPage(params.cursor);
-    return new CursorPage(first, (cursor) => fetchPage(cursor));
+    return new CursorPagePromise(async () => {
+      const first = await fetchPage(params.cursor);
+      return new CursorPage(first, (cursor) => fetchPage(cursor));
+    });
   }
 
   /** Fetch one clip by ID. */

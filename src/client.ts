@@ -81,7 +81,7 @@ export class AddisAI {
       apiKey,
       baseURL: resolveBaseURL(options.baseURL),
       timeout: options.timeout ?? 60_000,
-      maxRetries: options.maxRetries ?? 2,
+      maxRetries: options.maxRetries ?? 3,
       defaultHeaders: options.defaultHeaders ?? {},
       defaultQuery: options.defaultQuery ?? {},
       fetch: resolvedFetch,

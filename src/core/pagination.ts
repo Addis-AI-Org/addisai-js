@@ -32,3 +32,39 @@ export class CursorPage<T> implements AsyncIterable<T> {
     }
   }
 }
+
+/**
+ * A pending page that is BOTH awaitable (`await list()` → CursorPage) and
+ * async-iterable (`for await (const item of list())` → items across all pages).
+ * Lets `list()` be used either way without the caller needing to await first.
+ */
+export class CursorPagePromise<T> implements PromiseLike<CursorPage<T>>, AsyncIterable<T> {
+  private promise?: Promise<CursorPage<T>>;
+  constructor(private readonly load: () => Promise<CursorPage<T>>) {}
+
+  private get inner(): Promise<CursorPage<T>> {
+    return (this.promise ??= this.load());
+  }
+
+  then<TResult1 = CursorPage<T>, TResult2 = never>(
+    onfulfilled?: ((value: CursorPage<T>) => TResult1 | PromiseLike<TResult1>) | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+  ): Promise<TResult1 | TResult2> {
+    return this.inner.then(onfulfilled, onrejected);
+  }
+
+  catch<TResult = never>(
+    onrejected?: ((reason: unknown) => TResult | PromiseLike<TResult>) | null,
+  ): Promise<CursorPage<T> | TResult> {
+    return this.inner.catch(onrejected);
+  }
+
+  finally(onfinally?: (() => void) | null): Promise<CursorPage<T>> {
+    return this.inner.finally(onfinally);
+  }
+
+  async *[Symbol.asyncIterator](): AsyncIterator<T> {
+    const page = await this.inner;
+    yield* page;
+  }
+}

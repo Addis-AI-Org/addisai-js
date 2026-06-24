@@ -79,6 +79,13 @@ will not be merged:
 - Keep runtime dependencies at zero — use built-in `fetch`, web streams, and
   WebCrypto so the SDK stays runtime-agnostic.
 
+## Live smoke test
+
+`scripts/smoke.mjs` exercises the real API end-to-end. It is **not** a PR gate —
+the `smoke` workflow runs on manual dispatch and a daily schedule, and only where
+the repo secret `ADDIS_SMOKE_API_KEY` (a low-balance sandbox key) is set. Run it
+locally with `ADDIS_API_KEY=<key> npm run build && node scripts/smoke.mjs`.
+
 ## Commits & releases
 
 - Conventional, imperative commit messages.

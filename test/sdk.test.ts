@@ -308,7 +308,46 @@ describe("legacy audio streaming", () => {
   });
 });
 
+describe("voice.clips.list pagination", () => {
+  function clip(id: string) {
+    return { id, voice_id: "am-hiwot", language: "am", output_format: "mp3_44100", audio_url: "https://cdn.addisassistant.com/x", mime_type: "audio/mpeg", created_at: "2026-01-01T00:00:00Z" };
+  }
+  function twoPageHandler() {
+    return (c: Captured) =>
+      c.url.includes("cursor=")
+        ? jsonResponse({ data: [clip("clip_2")], meta: { next_cursor: null, limit: 1 } })
+        : jsonResponse({ data: [clip("clip_1")], meta: { next_cursor: "CUR2", limit: 1 } });
+  }
+
+  it("await list() returns a CursorPage with data + nextCursor", async () => {
+    const { addis } = clientWith(twoPageHandler());
+    const page = await addis.voice.clips.list({ language: "am", limit: 1 });
+    expect(page.data.length).toBe(1);
+    expect(page.data[0].id).toBe("clip_1");
+    expect(page.nextCursor).toBe("CUR2");
+  });
+
+  it("for await iterates items across pages (the documented usage)", async () => {
+    const { addis } = clientWith(twoPageHandler());
+    const ids: string[] = [];
+    for await (const c of addis.voice.clips.list({ language: "am", limit: 1 })) ids.push(c.id);
+    expect(ids).toEqual(["clip_1", "clip_2"]);
+  });
+});
+
 describe("retries", () => {
+  it("retries twice on 503 then succeeds (default budget 3)", async () => {
+    let n = 0;
+    const { addis, calls } = clientWith(() => {
+      n++;
+      if (n <= 2) return jsonResponse({ error: { code: "warming", message: "warming up" } }, { status: 503 });
+      return jsonResponse({ status: "success", data: { translation: "ok", source_language: "en", target_language: "am", quality: null } });
+    });
+    const out = await addis.translate.create({ text: "Hi", from: "en", to: "am" });
+    expect(calls.length).toBe(3);
+    expect(out.text).toBe("ok");
+  });
+
   it("retries once on a 500 then succeeds", async () => {
     let n = 0;
     const { addis, calls } = clientWith(() => {

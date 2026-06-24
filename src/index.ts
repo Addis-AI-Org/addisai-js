@@ -27,7 +27,7 @@ export type { ErrorDetail } from "./core/errors.js";
 
 // Request/runtime types
 export type { LogLevel, RequestOptions } from "./core/request.js";
-export { CursorPage } from "./core/pagination.js";
+export { CursorPage, CursorPagePromise } from "./core/pagination.js";
 
 // Helpers
 export { play } from "./lib/play.js";
