@@ -25,6 +25,12 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       - run: npm test
+      # Guard: never ship a source map that embeds the original source.
+      - run: |
+          if grep -rlq "sourcesContent" dist 2>/dev/null; then
+            echo "::error::A dist source map embeds sourcesContent — refusing to publish."
+            exit 1
+          fi
       - run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

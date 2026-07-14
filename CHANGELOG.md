@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1
+
+- **Build hygiene:** stop shipping source maps (`.js.map` / `.cjs.map`) in the npm
+  package. They embedded the full TypeScript source (`sourcesContent`) and bloated
+  the tarball by ~265 kB for no consumer benefit — the source is public on GitHub.
+  A CI guard now fails the publish if any `.map` with embedded source ever reappears.
+  (No API or behavior changes.)
+
 ## 0.1.0 — Developer preview
 
 Initial release of the official Addis AI SDK for Node.js.
