@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+- **Docs:** correct the homepage/brand link to `https://addisassistant.com`
+  (was a placeholder domain). No code changes.
+
 ## 0.1.1
 
 - **Build hygiene:** stop shipping source maps (`.js.map` / `.cjs.map`) in the npm
