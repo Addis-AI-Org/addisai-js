@@ -126,8 +126,8 @@ describe("voice.generate", () => {
           id: "clip_1",
           text: "ሰላም",
           text_preview: "ሰላም",
-          voice_id: "am-hiwot",
-          voice_name: "Hiwot",
+          voice_id: "am-hamen",
+          voice_name: "Hamen",
           voice_descriptor: "Warm",
           language: "am",
           output_format: "mp3_44100",
@@ -138,20 +138,22 @@ describe("voice.generate", () => {
           billable_characters: 3,
           download_name: "x.mp3",
           created_at: "2026-06-14T00:00:00Z",
-          usage: { pricing_unit: "character", price_per_1000_characters: 4.8, credits_used: 0.0144, credits_remaining: 499.9, currency: "ETB" },
+          usage: { pricing_unit: "minute", price_per_minute: 5, price_per_audio_minute: 5, credits_used: 0.1, credits_remaining: 499.9, currency: "ETB" },
           meta: { ignored_voice_settings: ["style"], applied_provider_settings: { exaggeration: 0.5 }, idempotent_replay: false },
         },
       }),
     );
 
-    const clip = await addis.voice.generate({ voiceId: "am-hiwot", text: "ሰላም", language: "am" });
+    const clip = await addis.voice.generate({ voiceId: "am-hamen", text: "ሰላም", language: "am" });
 
     expect(calls[0].url).toContain("/api/v1/voice/generations");
     expect(calls[0].body.client_request_id).toMatch(/^[0-9A-Z]{26}$/);
-    expect(calls[0].body.voice_id).toBe("am-hiwot");
+    expect(calls[0].body.voice_id).toBe("am-hamen");
     expect(clip.id).toBe("clip_1");
     expect(clip.audioUrl).toContain("cdn.addisassistant.com");
     expect(clip.usage?.currency).toBe("ETB");
+    expect(clip.usage?.pricingUnit).toBe("minute");
+    expect(clip.usage?.pricePerMinute).toBe(5);
     // Security: provider-specific knobs are NOT exposed.
     expect((clip.meta as any).appliedProviderSettings).toBeUndefined();
     expect(clip.meta?.ignoredVoiceSettings).toEqual(["style"]);
@@ -164,9 +166,60 @@ describe("voice.generate", () => {
         { status: 402 },
       ),
     );
-    await expect(addis.voice.generate({ voiceId: "am-hiwot", text: "x", language: "am" })).rejects.toBeInstanceOf(
+    await expect(addis.voice.generate({ voiceId: "am-hamen", text: "x", language: "am" })).rejects.toBeInstanceOf(
       InsufficientCreditsError,
     );
+  });
+});
+
+describe("voice minute pricing", () => {
+  it("maps estimate and usage responses without character-pricing fields", async () => {
+    const { addis } = clientWith((call) => {
+      if (call.url.endsWith("/api/v1/voice/estimate")) {
+        return jsonResponse({ data: {
+          character_count: 20,
+          billable_characters: 20,
+          pricing_unit: "minute",
+          price_per_minute: 5,
+          price_per_audio_minute: 5,
+          estimated_duration_seconds: 2,
+          estimated_billable_seconds: 2,
+          estimated_billable_minutes: 0.0333,
+          estimated_cost: 0.1667,
+          currency: "ETB",
+          current_balance: 500,
+          estimated_balance_after: 499.8333,
+          can_generate: true,
+        } });
+      }
+      return jsonResponse({ data: {
+        wallet_id: "wallet_1",
+        balance: 500,
+        formatted_balance: "Br 500.00",
+        currency: "ETB",
+        last_deduction_at: null,
+        total_spend: 0,
+        formatted_total_spend: "Br 0.00",
+        max_tts_characters: 5000,
+        pricing: {
+          unit: "minute",
+          price_per_minute: 5,
+          price_per_audio_minute: 5,
+          minimum_charge: 0,
+          currency: "ETB",
+        },
+        budget: null,
+      } });
+    });
+
+    const estimate = await addis.voice.estimate({ voiceId: "am-hamen", text: "ሰላም", language: "am" });
+    const usage = await addis.voice.usage();
+
+    expect(estimate.pricingUnit).toBe("minute");
+    expect(estimate.pricePerMinute).toBe(5);
+    expect(estimate.estimatedBillableMinutes).toBe(0.0333);
+    expect(usage.pricing.unit).toBe("minute");
+    expect(usage.pricing.pricePerMinute).toBe(5);
   });
 });
 
@@ -310,7 +363,7 @@ describe("legacy audio streaming", () => {
 
 describe("voice.clips.list pagination", () => {
   function clip(id: string) {
-    return { id, voice_id: "am-hiwot", language: "am", output_format: "mp3_44100", audio_url: "https://cdn.addisassistant.com/x", mime_type: "audio/mpeg", created_at: "2026-01-01T00:00:00Z" };
+    return { id, voice_id: "am-hamen", language: "am", output_format: "mp3_44100", audio_url: "https://cdn.addisassistant.com/x", mime_type: "audio/mpeg", created_at: "2026-01-01T00:00:00Z" };
   }
   function twoPageHandler() {
     return (c: Captured) =>

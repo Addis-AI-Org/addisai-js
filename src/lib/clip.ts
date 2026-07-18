@@ -3,8 +3,11 @@ import type { FetchLike } from "../core/request.js";
 import type { Language, OutputFormat } from "../resources/shared.js";
 
 export interface ClipUsage {
-  pricingUnit: "character";
-  pricePer1000Characters: number;
+  /** Current Voice 2 clips use minute billing; older clips may use character billing. */
+  pricingUnit: "minute" | "character";
+  pricePerMinute?: number;
+  pricePerAudioMinute?: number;
+  pricePer1000Characters?: number;
   creditsUsed: number | null;
   creditsRemaining: number | null;
   currency: string;

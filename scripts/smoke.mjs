@@ -19,7 +19,7 @@ async function check(label, fn) {
 
 const am = await addis.voices.list({ language: "am" }).catch((e) => { bad("voices.list", e); return []; });
 am.length ? ok(`voices.list am=${am.length}`) : bad("voices.list", "empty");
-const voiceId = (am.find((v) => v.isDefault) ?? am[0])?.id ?? "am-hiwot";
+const voiceId = (am.find((v) => v.isDefault) ?? am[0])?.id ?? "am-hamen";
 
 await check("voice.usage", async () => { const u = await addis.voice.usage(); if (typeof u.balance !== "number") throw new Error("no balance"); ok(`usage ${u.formattedBalance}`); });
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- **Voice 2 billing:** align estimate, usage, and clip types with the production
+  minute-based billing contract while preserving legacy character-priced clips.
+- **Voice examples:** use the production `am-hamen` voice ID.
+
 ## 0.1.2
 
 - **Docs:** correct the homepage/brand link to `https://addisassistant.com`

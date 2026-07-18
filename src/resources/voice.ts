@@ -40,8 +40,12 @@ export interface VoiceEstimateParams {
 export interface VoiceEstimate {
   characterCount: number;
   billableCharacters: number;
-  pricingUnit: "character";
-  pricePer1000Characters: number;
+  pricingUnit: "minute";
+  pricePerMinute: number;
+  pricePerAudioMinute: number;
+  estimatedDurationSeconds: number;
+  estimatedBillableSeconds: number;
+  estimatedBillableMinutes: number;
   estimatedCost: number;
   currency: string;
   currentBalance: number;
@@ -59,8 +63,9 @@ export interface VoiceUsage {
   formattedTotalSpend: string;
   maxTtsCharacters: number;
   pricing: {
-    unit: string;
-    pricePer1000Characters: number;
+    unit: "minute";
+    pricePerMinute: number;
+    pricePerAudioMinute: number;
     minimumCharge: number;
     currency: string;
   };
@@ -212,8 +217,10 @@ function mapClip(raw: Record<string, any>): ClipData {
     createdAt: raw.created_at,
     usage: raw.usage
       ? {
-          pricingUnit: raw.usage.pricing_unit ?? "character",
-          pricePer1000Characters: raw.usage.price_per_1000_characters ?? 0,
+          pricingUnit: raw.usage.pricing_unit ?? "minute",
+          pricePerMinute: raw.usage.price_per_minute,
+          pricePerAudioMinute: raw.usage.price_per_audio_minute,
+          pricePer1000Characters: raw.usage.price_per_1000_characters,
           creditsUsed: raw.usage.credits_used ?? null,
           creditsRemaining: raw.usage.credits_remaining ?? null,
           currency: raw.usage.currency ?? "ETB",

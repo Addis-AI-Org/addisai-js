@@ -19,7 +19,7 @@ const addis = new AddisAI({ apiKey: process.env.ADDIS_API_KEY });
 
 // Text-to-speech
 const clip = await addis.voice.generate({
-  voiceId: "am-hiwot",
+  voiceId: "am-hamen",
   text: "ሰላም፣ እንኳን ወደ አዲስ ኤአይ በደህና መጡ።",
   language: "am",
 });
@@ -57,7 +57,7 @@ The API key is read from the `apiKey` option or the `ADDIS_API_KEY` environment 
 
 ```ts
 const clip = await addis.voice.generate({
-  voiceId: "am-hiwot",
+  voiceId: "am-hamen",
   text: "ሰላም ለዓለም።",
   language: "am",                 // must match the voice
   outputFormat: "mp3_44100",      // "mp3_44100" | "wav_44100" | "pcm_16000"
@@ -79,7 +79,7 @@ await play(clip);                       // local playback (needs ffmpeg/mpv)
 **Idempotent billing.** `voice.generate` requires an idempotency key. The SDK generates one automatically and reuses it across retries, so a network retry is never billed twice. Pass your own for full control:
 
 ```ts
-await addis.voice.generate({ voiceId: "am-hiwot", text, language: "am", clientRequestId: myId });
+await addis.voice.generate({ voiceId: "am-hamen", text, language: "am", clientRequestId: myId });
 ```
 
 Reusing a key with the *same* inputs replays the existing clip (`clip.meta.idempotentReplay === true`, no new charge); reusing it with *changed* inputs throws `IdempotencyConflictError`.
@@ -88,9 +88,9 @@ Reusing a key with the *same* inputs replays the existing clip (`clip.meta.idemp
 
 ```ts
 const voices = await addis.voices.list({ language: "am", gender: "female" });
-const preview = await addis.voices.preview("am-hiwot");
+const preview = await addis.voices.preview("am-hamen");
 
-const est = await addis.voice.estimate({ voiceId: "am-hiwot", text, language: "am" });
+const est = await addis.voice.estimate({ voiceId: "am-hamen", text, language: "am" });
 if (!est.canGenerate) console.log("Top up:", est.estimatedCost, est.currency);
 
 const wallet = await addis.voice.usage();
@@ -104,7 +104,7 @@ await addis.voice.clips.delete("clip_123");
 ### Migrating from ElevenLabs
 
 ```ts
-const clip = await addis.textToSpeech.convert("am-hiwot", { text: "ሰላም", language: "am" });
+const clip = await addis.textToSpeech.convert("am-hamen", { text: "ሰላም", language: "am" });
 ```
 
 ## Chat / LLM
@@ -260,7 +260,7 @@ import {
 } from "addisai";
 
 try {
-  await addis.voice.generate({ voiceId: "am-hiwot", text, language: "am" });
+  await addis.voice.generate({ voiceId: "am-hamen", text, language: "am" });
 } catch (err) {
   if (err instanceof InsufficientCreditsError) showTopUp(err.availableBalance);
   else if (err instanceof RateLimitError) await wait(err.retryAfter ?? 1);
