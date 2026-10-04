@@ -5,7 +5,7 @@ import { CursorPage, CursorPagePromise, type Page } from "../core/pagination.js"
 import { type RequestOptions, type Transport, unwrapData } from "../core/request.js";
 import { AddisClip, type ClipData } from "../lib/clip.js";
 import { AudioStream } from "../lib/audio-stream.js";
-import type { Language, OutputFormat } from "./shared.js";
+import { assertVoiceLanguage, type Language, type OutputFormat } from "./shared.js";
 
 /** ElevenLabs-style voice controls, expressed on a 0–100 scale. */
 export interface VoiceSettings {
@@ -90,6 +90,7 @@ export class Voice {
 
   /** Synthesize speech and return the generated clip. */
   async generate(params: VoiceGenerateParams, opts: RequestOptions = {}): Promise<AddisClip> {
+    assertVoiceLanguage(params.language);
     const clientRequestId = params.clientRequestId ?? ulid();
     const body = {
       text: params.text,
@@ -111,6 +112,7 @@ export class Voice {
 
   /** Yield MP3 phrases as they arrive. metadata is set after billing completes. */
   async stream(params: VoiceGenerateParams, opts: RequestOptions = {}): Promise<AudioStream> {
+    assertVoiceLanguage(params.language);
     if (params.outputFormat && params.outputFormat !== "mp3_44100") throw new AddisAIError("voice.stream supports MP3. Use voice.generate for other formats.");
     const clientRequestId = params.clientRequestId ?? ulid();
     const { response, controller } = await this.transport.openStream({
@@ -133,6 +135,7 @@ export class Voice {
 
   /** Pre-flight cost estimate (and whether the wallet can cover it). */
   async estimate(params: VoiceEstimateParams, opts: RequestOptions = {}): Promise<VoiceEstimate> {
+    assertVoiceLanguage(params.language);
     const body = {
       text: params.text,
       language: params.language,
@@ -163,6 +166,7 @@ export class Clips {
    * (`for await (const clip of clips.list())` walks every page).
    */
   list(params: ClipListParams = {}, opts: RequestOptions = {}): CursorPagePromise<AddisClip> {
+    if (params.language !== undefined) assertVoiceLanguage(params.language);
     const fetchPage = async (cursor?: string): Promise<Page<AddisClip>> => {
       const query: Record<string, unknown> = {
         limit: params.limit,

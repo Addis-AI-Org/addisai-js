@@ -2,7 +2,7 @@ import { camelize } from "../core/camelize.js";
 import { AddisAIError } from "../core/errors.js";
 import { ulid } from "../core/idempotency.js";
 import { type RequestOptions, type Transport, unwrapData } from "../core/request.js";
-import type { Language } from "./shared.js";
+import { assertVoiceLanguage, type Language } from "./shared.js";
 
 export interface RealtimeSessionParams {
   voiceId: string;
@@ -54,6 +54,7 @@ export class Realtime {
 
   /** Call on your server; return only this scoped, one-use ticket to the browser. */
   async createSession(params: RealtimeSessionParams, opts: RequestOptions = {}): Promise<RealtimeSession> {
+    assertVoiceLanguage(params.language);
     const data = unwrapData(await this.transport.request({ method: "POST", path: "/api/v1/realtime/sessions",
       body: { voice_id: params.voiceId, language: params.language, audio_format: params.audioFormat ?? "mp3",
         max_text_characters: params.maxTextCharacters ?? 5000 } }, { ...opts, maxRetries: opts.maxRetries ?? 0 }));
@@ -68,6 +69,7 @@ export class Realtime {
 
 /** Browser-safe connection helper. Needs only a ticket returned by your server. */
 export async function connectRealtime(session: RealtimeSession, options: RealtimeConnectOptions = {}): Promise<RealtimeConnection> {
+  assertVoiceLanguage(session.language);
   const url = new URL(session.websocketUrl);
   if (url.username || url.password || url.search || url.hash ||
       (url.protocol !== "wss:" && !(url.protocol === "ws:" && ["localhost", "127.0.0.1"].includes(url.hostname)))) {

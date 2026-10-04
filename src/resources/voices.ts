@@ -1,6 +1,6 @@
 import { camelize } from "../core/camelize.js";
 import { type RequestOptions, type Transport, unwrapData } from "../core/request.js";
-import type { Language } from "./shared.js";
+import { assertVoiceLanguage, isVoiceLanguage, type Language } from "./shared.js";
 
 export interface VoiceCatalogEntry {
   id: string;
@@ -40,6 +40,7 @@ export class Voices {
 
   /** List the voice catalog. */
   async list(params: VoiceListParams = {}, opts: RequestOptions = {}): Promise<VoiceCatalogEntry[]> {
+    if (params.language !== undefined) assertVoiceLanguage(params.language);
     const query: Record<string, unknown> = {
       language: params.language,
       gender: params.gender,
@@ -49,7 +50,7 @@ export class Voices {
     const data = unwrapData<unknown[]>(
       await this.transport.request({ method: "GET", path: "/api/v1/voice/voices", query }, opts),
     );
-    return camelize<VoiceCatalogEntry[]>(data);
+    return camelize<VoiceCatalogEntry[]>(data).filter((voice) => isVoiceLanguage(voice.language));
   }
 
   /** Fetch a single voice's preview clip metadata. */

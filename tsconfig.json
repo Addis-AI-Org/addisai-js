@@ -15,6 +15,6 @@
     "types": ["node"],
     "outDir": "dist"
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist", "test"]
+  "include": ["src", "test/voice-language-types.ts"],
+  "exclude": ["node_modules", "dist"]
 }
