@@ -93,3 +93,11 @@ describe("realtime sockets", () => {
     await expect(connectRealtime({ ...ticket, websocketUrl: ticket.websocketUrl + "?token=secret" })).rejects.toThrow(/without credentials/);
   });
 });
+
+
+it("sends the explicit v2 audio ceiling while keeping legacy default requests compatible", async () => {
+  let captured: any;
+  const addis = new AddisAI({apiKey:"secret",fetch:async(_url,init)=>{captured=JSON.parse(String(init?.body));return Response.json({data:{id:"session",token:"ticket",websocket_url:ticket.websocketUrl}});}});
+  await addis.realtime.createSession({voiceId:"ti-berhane",language:"ti",maxAudioSeconds:30});
+  expect(captured.max_audio_seconds).toBe(30);
+});

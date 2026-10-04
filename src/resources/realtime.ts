@@ -11,6 +11,8 @@ export interface RealtimeSessionParams {
   audioFormat?: "mp3" | "wav_mp3";
   /** Cumulative text budget for the ephemeral client. Default and maximum 5000. */
   maxTextCharacters?: number;
+  /** Maximum generated audio seconds per turn; default 60. Unused held credit is released. */
+  maxAudioSeconds?: number;
 }
 export interface RealtimeSession {
   id: string;
@@ -22,6 +24,7 @@ export interface RealtimeSession {
   language: Language;
   audioFormat: "mp3" | "wav_mp3";
   maxTextCharacters: number;
+  maxAudioSeconds?: number;
 }
 export type RealtimeEvent =
   | { type: "session.created"; session_id: string; voice_id: string; language: Language; audio_format: "mp3" | "wav_mp3"; max_text_characters: number }
@@ -57,7 +60,8 @@ export class Realtime {
     assertVoiceLanguage(params.language);
     const data = unwrapData(await this.transport.request({ method: "POST", path: "/api/v1/realtime/sessions",
       body: { voice_id: params.voiceId, language: params.language, audio_format: params.audioFormat ?? "mp3",
-        max_text_characters: params.maxTextCharacters ?? 5000 } }, { ...opts, maxRetries: opts.maxRetries ?? 0 }));
+        max_text_characters: params.maxTextCharacters ?? 5000,
+        ...(params.maxAudioSeconds === undefined ? {} : { max_audio_seconds: params.maxAudioSeconds }) } }, { ...opts, maxRetries: opts.maxRetries ?? 0 }));
     return camelize<RealtimeSession>(data);
   }
 
