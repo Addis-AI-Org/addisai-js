@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 (prepared; publication pending)
+## 0.3.0
 
 - Enable billed `voice.stream()` and `textToSpeech.stream()` with MP3 phrase
   decoding, clip/usage metadata, truncation errors, and idempotent clip recovery.
@@ -8,7 +8,9 @@
   `connectRealtime()` with scoped, short-lived WebSocket tickets.
 - Add typed text/audio events, text buffering, cancellation, and MP3 `speak()`.
 - Expand TTS language types for catalog-backed voice selection; document
-  Amharic, Afaan Oromo, English, and French for real-time voice integration.
+  Amharic, Afaan Oromo, and Tigrigna for real-time voice integration.
+- Add Tigrigna to chat, speech-to-text, and translation language types without
+  changing their request or billing behavior.
 - Add the patched `ws` 8.22.0 dependency for Node 18 compatibility.
 
 ## 0.2.0

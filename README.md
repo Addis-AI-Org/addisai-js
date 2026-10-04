@@ -277,13 +277,13 @@ at a time. Use `append()` plus `commit()` to buffer generated text for one turn.
 Cancellation mutes delivery; an already-started synthesis completes and is billed.
 
 Real-time voice languages documented here are Amharic (`am`), Afaan Oromo (`om`),
-English (`en`), and French (`fr`). Choose an available voice from the live catalog.
+and Tigrigna (`ti`). Choose an available voice from the live catalog.
 HTTP streams support MP3 only. For early
 WAV pieces, choose a `wav_mp3` socket session and consume `audio.delta` events
 with `decodeRealtimeAudio(event)`, playing according to `event.format`.
 
-See [examples/realtime.mjs](examples/realtime.mjs). WebSocket server activation
-must precede SDK 0.3.0 publication.
+See [examples/realtime.mjs](examples/realtime.mjs) and the
+[Real-time Voice Streaming guide](https://docs.addisassistant.com/docs/capabilities/realtime-voice).
 
 ## Errors
 
