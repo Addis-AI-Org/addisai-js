@@ -1,6 +1,6 @@
 {
   "name": "addisai",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Official Addis AI SDK for Node.js — voice (TTS), chat/LLM with system prompts, personas and function calling, speech-to-text, and translation for Amharic and Afan Oromo.",
   "keywords": [
     "addis",
@@ -56,8 +56,12 @@
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
+  "dependencies": {
+    "ws": "8.22.0"
+  },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@types/ws": "8.18.1",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
     "vitest": "^1.6.0"

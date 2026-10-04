@@ -249,7 +249,40 @@ await audio.toFile("legacy.wav");
 const bytes = await audio.arrayBuffer();
 ```
 
-(`addis.voice.stream(...)` exists with the same `AudioStream` shape and will work once the API enables streaming synthesis; today it raises `NotSupportedError`.)
+### Real-time voice (0.3.0)
+
+`voice.stream()` yields MP3 phrases as they arrive and exposes final clip and
+billing information as `audio.metadata` after the iterator completes.
+
+```js
+const audio = await addis.voice.stream({ voiceId: "am-hamen", language: "am", text });
+await audio.toFile("speech.mp3");
+console.log(audio.metadata?.usage);
+
+const voice = await addis.realtime.connect({ voiceId: "am-hamen", language: "am" });
+try {
+  for await (const bytes of voice.speak(text, "unique-turn-id")) {
+    // Feed each chunk to your MP3 player or writable stream.
+  }
+  console.log(voice.lastCompletion?.usage);
+} finally { voice.close(); }
+```
+
+For browsers, call `realtime.createSession()` on your application server and
+return the scoped ticket to your authenticated user. Connect with the exported
+`connectRealtime(ticket)` helper; never put a developer key in browser code.
+A ticket is one-use, valid for 60 seconds, scoped to a voice and language, with
+a cumulative text budget. The socket lasts up to 10 minutes with one utterance
+at a time. Use `append()` plus `commit()` to buffer generated text for one turn.
+Cancellation mutes delivery; an already-started synthesis completes and is billed.
+
+Real-time voice languages documented here are Amharic (`am`), Afaan Oromo (`om`),
+and Tigrigna (`ti`). Choose an available voice from the live catalog.
+HTTP streams support MP3 only. For early
+WAV pieces, choose a `wav_mp3` socket session and consume `audio.delta` events
+with `decodeRealtimeAudio(event)`, playing according to `event.format`.
+
+See [examples/realtime.mjs](examples/realtime.mjs).
 
 ## Errors
 
@@ -298,3 +331,10 @@ await addis.voice.generate(params, {
 ## License
 
 MIT
+
+
+### Tigrigna
+
+Use `language: "ti"` for chat (including attachments) and speech transcription.
+Use `from: "ti"` or `to: "ti"` for translation with `am`, `om`, or `en`.
+Tigrigna transcription uses the `/api/v2/stt` endpoint and may return null confidence.
