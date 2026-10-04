@@ -1,6 +1,6 @@
 # addisai
 
-The official [Addis AI](https://addisassistant.com) SDK for Node.js — voice (text‑to‑speech), chat/LLM with system prompts, personas and function calling, speech‑to‑text, and translation for **Amharic (`am`)** and **Afan Oromo (`om`)**.
+The official [Addis AI](https://addisassistant.com) SDK for Node.js — voice (text‑to‑speech), chat/LLM with system prompts, personas and function calling, speech‑to‑text, and translation, with examples for **Amharic (`am`)**, **Afaan Oromo (`om`)**, and **Tigrinya (`ti`)**.
 
 Designed to feel familiar if you've used the OpenAI, Anthropic, or ElevenLabs SDKs.
 
@@ -53,6 +53,17 @@ const addis = new AddisAI({
 
 The API key is read from the `apiKey` option or the `ADDIS_API_KEY` environment variable. It is never logged and is redacted from errors. The SDK refuses to run in a browser unless you pass `dangerouslyAllowBrowser: true` — keep your key server‑side.
 
+## Languages
+
+| Language | Code | Example voice | Voice ID |
+| --- | --- | --- | --- |
+| Amharic | `am` | Hamen | `am-hamen` |
+| Afaan Oromo | `om` | Bikila | `om-bikila` |
+| Tigrinya | `ti` | Berhane | `ti-berhane` |
+
+Use a matching language and voice ID for speech generation. Fetch the current
+catalog with `voices.list` to choose another available voice.
+
 ## Voice (text‑to‑speech)
 
 ```ts
@@ -101,6 +112,57 @@ for await (const c of addis.voice.clips.list({ language: "am" })) {
 await addis.voice.clips.delete("clip_123");
 ```
 
+### Real-time voice
+
+`voice.stream()` yields MP3 phrases as they arrive and exposes final clip and
+billing information as `audio.metadata` after the iterator completes.
+
+```js
+import { randomUUID } from "node:crypto";
+
+// Select a matching pair from the Languages table.
+const voiceId = "ti-berhane";
+const language = "ti";
+const text = "ሰላም፣ እንቋዕ ናብ ኣዲስ ኤኣይ ብደሓን መጻእኩም።";
+
+const audio = await addis.voice.stream({
+  voiceId, language, text, clientRequestId: randomUUID(),
+});
+await audio.toFile("speech.mp3");
+console.log(audio.metadata?.usage);
+
+const voice = await addis.realtime.connect({ voiceId, language });
+try {
+  for await (const bytes of voice.speak(text, randomUUID())) {
+    // Feed each chunk to your MP3 player or writable stream.
+  }
+  console.log(voice.lastCompletion?.usage);
+} finally { voice.close(); }
+```
+
+For browsers, call `realtime.createSession()` on your application server and
+return the scoped ticket to your authenticated user. Connect with the exported
+`connectRealtime(ticket)` helper; never put a developer key in browser code.
+A ticket is one-use, valid for 60 seconds, scoped to a voice and language, with
+a cumulative text budget. The socket lasts up to 10 minutes with one utterance
+at a time. Use `append()` plus `commit()` to buffer generated text for one turn.
+Cancellation mutes delivery; an already-started synthesis completes and is billed.
+
+Use any matching voice and language pair from the Languages table.
+HTTP streams support MP3 only. For early
+WAV pieces, choose a `wav_mp3` socket session and consume `audio.delta` events
+with `decodeRealtimeAudio(event)`, playing according to `event.format`.
+
+See [examples/realtime.mjs](examples/realtime.mjs).
+
+Run the same example with any of the documented languages:
+
+```bash
+ADDIS_VOICE_LANGUAGE=am ADDIS_VOICE_ID=am-hamen node examples/realtime.mjs "ሰላም፣ እንኳን ወደ አዲስ ኤአይ በደህና መጡ።"
+ADDIS_VOICE_LANGUAGE=om ADDIS_VOICE_ID=om-bikila node examples/realtime.mjs "Nagaa, gara Addis AI baga nagaan dhuftan."
+ADDIS_VOICE_LANGUAGE=ti ADDIS_VOICE_ID=ti-berhane node examples/realtime.mjs "ሰላም፣ እንቋዕ ናብ ኣዲስ ኤኣይ ብደሓን መጻእኩም።"
+```
+
 ### Migrating from ElevenLabs
 
 ```ts
@@ -113,7 +175,7 @@ Drop‑in OpenAI‑compatible chat, plus Addis extensions for language, system p
 
 ```ts
 const res = await addis.chat.completions.create({
-  language: "am",                                  // "am" | "om"
+  language: "am",                                  // "am" | "om" | "ti"
   system: "Answer in concise bullet points.",      // behaviour; does not change identity
   persona: "You are RecipeBot by AcmeCorp.",        // optional branded identity
   messages: [{ role: "user", content: "የእንጀራ አሰራር አስተምረኝ" }],
@@ -225,7 +287,8 @@ const out = await addis.translate.create({ text: "Hello, how are you?", from: "e
 console.log(out.text);
 ```
 
-STT supports `am | om | en | ha | sw` (max 25 MB / 120 s). Translation supports `am | om | en`.
+STT supports `am | om | ti | en | ha | sw` (max 25 MB / 120 s). Translation supports `am | om | ti | en`.
+Speech recognition uses `/api/v2/stt`; confidence may be `null`.
 
 ## Legacy audio (deprecated)
 
@@ -248,41 +311,6 @@ for await (const chunk of audio) { /* Uint8Array */ }
 await audio.toFile("legacy.wav");
 const bytes = await audio.arrayBuffer();
 ```
-
-### Real-time voice (0.3.0)
-
-`voice.stream()` yields MP3 phrases as they arrive and exposes final clip and
-billing information as `audio.metadata` after the iterator completes.
-
-```js
-const audio = await addis.voice.stream({ voiceId: "am-hamen", language: "am", text });
-await audio.toFile("speech.mp3");
-console.log(audio.metadata?.usage);
-
-const voice = await addis.realtime.connect({ voiceId: "am-hamen", language: "am" });
-try {
-  for await (const bytes of voice.speak(text, "unique-turn-id")) {
-    // Feed each chunk to your MP3 player or writable stream.
-  }
-  console.log(voice.lastCompletion?.usage);
-} finally { voice.close(); }
-```
-
-For browsers, call `realtime.createSession()` on your application server and
-return the scoped ticket to your authenticated user. Connect with the exported
-`connectRealtime(ticket)` helper; never put a developer key in browser code.
-A ticket is one-use, valid for 60 seconds, scoped to a voice and language, with
-a cumulative text budget. The socket lasts up to 10 minutes with one utterance
-at a time. Use `append()` plus `commit()` to buffer generated text for one turn.
-Cancellation mutes delivery; an already-started synthesis completes and is billed.
-
-Real-time voice languages documented here are Amharic (`am`), Afaan Oromo (`om`),
-and Tigrigna (`ti`). Choose an available voice from the live catalog.
-HTTP streams support MP3 only. For early
-WAV pieces, choose a `wav_mp3` socket session and consume `audio.delta` events
-with `decodeRealtimeAudio(event)`, playing according to `event.format`.
-
-See [examples/realtime.mjs](examples/realtime.mjs).
 
 ## Errors
 
@@ -331,10 +359,3 @@ await addis.voice.generate(params, {
 ## License
 
 MIT
-
-
-### Tigrigna
-
-Use `language: "ti"` for chat (including attachments) and speech transcription.
-Use `from: "ti"` or `to: "ti"` for translation with `am`, `om`, or `en`.
-Tigrigna transcription uses the `/api/v2/stt` endpoint and may return null confidence.
