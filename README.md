@@ -276,8 +276,9 @@ a cumulative text budget. The socket lasts up to 10 minutes with one utterance
 at a time. Use `append()` plus `commit()` to buffer generated text for one turn.
 Cancellation mutes delivery; an already-started synthesis completes and is billed.
 
-Streaming TTS supports `am`, `om`, `ti`, `sid`, `wal`, `ha`, `sw`, `en`, and `fr`
-according to the live voice catalog. HTTP streams support MP3 only. For early
+Real-time voice languages documented here are Amharic (`am`), Afaan Oromo (`om`),
+English (`en`), and French (`fr`). Choose an available voice from the live catalog.
+HTTP streams support MP3 only. For early
 WAV pieces, choose a `wav_mp3` socket session and consume `audio.delta` events
 with `decodeRealtimeAudio(event)`, playing according to `event.format`.
 
