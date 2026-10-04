@@ -282,8 +282,7 @@ HTTP streams support MP3 only. For early
 WAV pieces, choose a `wav_mp3` socket session and consume `audio.delta` events
 with `decodeRealtimeAudio(event)`, playing according to `event.format`.
 
-See [examples/realtime.mjs](examples/realtime.mjs) and the
-[Real-time Voice Streaming guide](https://docs.addisassistant.com/docs/capabilities/realtime-voice).
+See [examples/realtime.mjs](examples/realtime.mjs).
 
 ## Errors
 
