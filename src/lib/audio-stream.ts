@@ -1,5 +1,6 @@
 import { AddisAIError } from "../core/errors.js";
 import { parseNDJSON } from "../core/sse.js";
+import { parseVoiceFrames } from "../core/voice-frames.js";
 
 /**
  * A stream of audio byte chunks. Async-iterable (`for await` yields
@@ -9,17 +10,28 @@ import { parseNDJSON } from "../core/sse.js";
  */
 export class AudioStream implements AsyncIterable<Uint8Array> {
   private consumed = false;
+  /** Clip and wallet metadata, available after the iterator reaches completion. */
+  metadata: Record<string, unknown> | null = null;
+  /** Reuse this ID to recover a failed generation without a second charge. */
+  clientRequestId?: string;
 
   constructor(
     private readonly response: Response,
-    private readonly mode: "ndjson" | "raw",
+    private readonly mode: "ndjson" | "raw" | "framed" | "replay",
     private readonly controller?: AbortController,
   ) {}
 
   static fromResponse(response: Response, controller?: AbortController): AudioStream {
+    if (response.headers.get("x-addis-audio-protocol") === "mp3-frames-v1") return new AudioStream(response, "framed", controller);
     const contentType = (response.headers.get("content-type") || "").toLowerCase();
     const mode = contentType.includes("ndjson") || contentType.includes("json") ? "ndjson" : "raw";
     return new AudioStream(response, mode, controller);
+  }
+
+  static fromVoiceResponse(response: Response, controller?: AbortController): AudioStream {
+    if (response.headers.get("x-addis-audio-protocol") === "mp3-frames-v1") return new AudioStream(response, "framed", controller);
+    if ((response.headers.get("content-type") ?? "").includes("application/json")) return new AudioStream(response, "replay", controller);
+    throw new AddisAIError("Unsupported voice stream protocol.");
   }
 
   /** Cancel the stream and underlying request. */
@@ -32,6 +44,21 @@ export class AudioStream implements AsyncIterable<Uint8Array> {
     this.consumed = true;
     if (!this.response.body) return;
 
+    if (this.mode === "replay") {
+      const payload = await this.response.json();
+      if (!payload?.data || payload.error) throw new AddisAIError("Voice generation did not complete.");
+      this.metadata = payload.data;
+      // Idempotent replay returns the already-paid clip. Audio is not resent.
+      return;
+    }
+    if (this.mode === "framed") {
+      for await (const part of parseVoiceFrames(this.response.body)) {
+        if (part instanceof Uint8Array) yield part;
+        else this.metadata = part;
+      }
+      return;
+    }
+
     if (this.mode === "raw") {
       const reader = this.response.body.getReader();
       try {
@@ -41,6 +68,7 @@ export class AudioStream implements AsyncIterable<Uint8Array> {
           if (value) yield value;
         }
       } finally {
+        await reader.cancel().catch(() => {});
         reader.releaseLock();
       }
       return;

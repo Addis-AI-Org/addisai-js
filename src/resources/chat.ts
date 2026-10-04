@@ -2,7 +2,7 @@ import { AddisAIError } from "../core/errors.js";
 import { type RequestOptions, type Transport } from "../core/request.js";
 import { ChatStream } from "../lib/chat-stream.js";
 import { toBlob, type Uploadable } from "../core/uploads.js";
-import type { Language } from "./shared.js";
+import type { ChatLanguage } from "./shared.js";
 
 /** Public model identifier surfaced to developers. Never the underlying model. */
 export const ADDIS_CHAT_MODEL = "addis-1-alef";
@@ -63,7 +63,7 @@ export interface ChatCompletionCreateParams {
   model?: string;
   messages: ChatCompletionMessage[];
   /** Target language. "am" (Amharic) or "om" (Afan Oromo). Default "am". */
-  language?: Language;
+  language?: ChatLanguage;
   /** Extra behaviour instructions (tone/format). Does not change identity. */
   system?: string;
   /** Replaces the assistant identity for branded apps. */
@@ -220,7 +220,7 @@ class Completions {
 
   private async createStream(
     params: ChatCompletionCreateParams,
-    language: Language,
+    language: ChatLanguage,
     opts: RequestOptions,
   ): Promise<ChatStream> {
     const { response, controller } = await this.transport.openStream(
@@ -232,7 +232,7 @@ class Completions {
 
   private async createMultipart(
     params: ChatCompletionCreateParams,
-    language: Language,
+    language: ChatLanguage,
     opts: RequestOptions,
   ): Promise<ChatCompletion> {
     const form = new FormData();
@@ -271,7 +271,7 @@ class Completions {
  */
 function buildNativeBody(
   params: ChatCompletionCreateParams,
-  language: Language,
+  language: ChatLanguage,
   opts: { stream?: boolean } = {},
 ): Record<string, unknown> {
   const systemParts: string[] = [];

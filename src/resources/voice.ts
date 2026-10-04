@@ -1,10 +1,10 @@
 import { camelize } from "../core/camelize.js";
 import { ulid } from "../core/idempotency.js";
-import { NotSupportedError } from "../core/errors.js";
+import { AddisAIError } from "../core/errors.js";
 import { CursorPage, CursorPagePromise, type Page } from "../core/pagination.js";
 import { type RequestOptions, type Transport, unwrapData } from "../core/request.js";
 import { AddisClip, type ClipData } from "../lib/clip.js";
-import type { AudioStream } from "../lib/audio-stream.js";
+import { AudioStream } from "../lib/audio-stream.js";
 import type { Language, OutputFormat } from "./shared.js";
 
 /** ElevenLabs-style voice controls, expressed on a 0–100 scale. */
@@ -109,14 +109,26 @@ export class Voice {
     return new AddisClip({ ...mapClip(data), clientRequestId }, this.transport.fetch);
   }
 
-  /**
-   * Streaming synthesis. The surface is stable for when the API enables it;
-   * until then it raises NotSupportedError. Use {@link Voice.generate} today.
-   */
-  async stream(_params: VoiceGenerateParams, _opts?: RequestOptions): Promise<AudioStream> {
-    throw new NotSupportedError(
-      "Streaming voice synthesis is not yet available. Use voice.generate().",
-    );
+  /** Yield MP3 phrases as they arrive. metadata is set after billing completes. */
+  async stream(params: VoiceGenerateParams, opts: RequestOptions = {}): Promise<AudioStream> {
+    if (params.outputFormat && params.outputFormat !== "mp3_44100") throw new AddisAIError("voice.stream supports MP3. Use voice.generate for other formats.");
+    const clientRequestId = params.clientRequestId ?? ulid();
+    const { response, controller } = await this.transport.openStream({
+      method: "POST", path: "/api/v1/voice/generations/stream",
+      body: { text: params.text, language: params.language, voice_id: params.voiceId,
+        output_format: "mp3_44100", voice_settings: params.voiceSettings, client_request_id: clientRequestId },
+    }, { ...opts, timeout: opts.timeout ?? 190_000 });
+    let stream: AudioStream;
+    if ((response.headers.get("content-type") ?? "").includes("application/json")) {
+      const data = unwrapData<Record<string, unknown>>(await response.json());
+      if (typeof data.audio_url !== "string") throw new AddisAIError("Invalid voice replay metadata.");
+      const audio = await this.transport.fetch(data.audio_url, { signal: controller.signal });
+      if (!audio.ok) throw new AddisAIError("The saved voice clip could not be downloaded.");
+      stream = AudioStream.fromResponse(audio, controller);
+      stream.metadata = data;
+    } else stream = AudioStream.fromVoiceResponse(response, controller);
+    stream.clientRequestId = clientRequestId;
+    return stream;
   }
 
   /** Pre-flight cost estimate (and whether the wallet can cover it). */

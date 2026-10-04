@@ -40,10 +40,13 @@ export { AddisClip } from "./lib/clip.js";
 export type { ClipData, ClipMeta, ClipUsage } from "./lib/clip.js";
 export { ChatStream } from "./lib/chat-stream.js";
 export { AudioStream } from "./lib/audio-stream.js";
+export { connectRealtime, decodeRealtimeAudio, RealtimeConnection } from "./resources/realtime.js";
+export type { RealtimeSession, RealtimeSessionParams, RealtimeEvent, RealtimeInput, RealtimeConnectOptions, RealtimeSocket } from "./resources/realtime.js";
 
 // Shared
 export type {
   Language,
+  ChatLanguage,
   OutputFormat,
   SttLanguage,
   TranslateLanguage,

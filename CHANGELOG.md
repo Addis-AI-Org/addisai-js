@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 (prepared; publication pending)
+
+- Enable billed `voice.stream()` and `textToSpeech.stream()` with MP3 phrase
+  decoding, clip/usage metadata, truncation errors, and idempotent clip recovery.
+- Add `realtime.createSession()`, `realtime.connect()`, and browser-safe
+  `connectRealtime()` with scoped, short-lived WebSocket tickets.
+- Add typed text/audio events, text buffering, cancellation, and MP3 `speak()`.
+- Expand TTS language types to the nine live catalog languages.
+- Add the patched `ws` 8.22.0 dependency for Node 18 compatibility.
+
 ## 0.2.0
 
 - **Voice 2 billing:** align estimate, usage, and clip types with the production

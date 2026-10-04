@@ -1,5 +1,6 @@
 import type { RequestOptions } from "../core/request.js";
 import type { AddisClip } from "../lib/clip.js";
+import type { AudioStream } from "../lib/audio-stream.js";
 import type { Voice, VoiceSettings } from "./voice.js";
 import type { Language, OutputFormat } from "./shared.js";
 
@@ -21,5 +22,9 @@ export class TextToSpeech {
   /** Synthesize speech for a voice. Mirrors ElevenLabs `textToSpeech.convert`. */
   convert(voiceId: string, params: ConvertParams, opts?: RequestOptions): Promise<AddisClip> {
     return this.voice.generate({ voiceId, ...params }, opts);
+  }
+
+  stream(voiceId: string, params: ConvertParams, opts?: RequestOptions): Promise<AudioStream> {
+    return this.voice.stream({ voiceId, ...params }, opts);
   }
 }
