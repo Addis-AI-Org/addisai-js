@@ -21,7 +21,7 @@ describe("billed HTTP voice streaming", () => {
   it("decodes split frames and excludes metadata from the audio", async () => {
     let body: any;
     const addis = new AddisAI({ apiKey: "secret", fetch: async (_url, init) => { body = JSON.parse(String(init?.body)); return streamResponse(); } });
-    const stream = await addis.voice.stream({ voiceId: "en-default", language: "en", text: "A complete sentence.", clientRequestId: "stable-turn" });
+    const stream = await addis.voice.stream({ voiceId: "ti-berhane", language: "ti", text: "ሰላም፣ ከመይ ኣለኹም፧", clientRequestId: "stable-turn" });
     expect([...new Uint8Array(await stream.arrayBuffer())]).toEqual([1, 2, 3]);
     expect(stream.metadata).toEqual({ id: "clip", usage: { credits_used: 1 } });
     expect(body.client_request_id).toBe("stable-turn");

@@ -1,5 +1,18 @@
+import { AddisAIError } from "../core/errors.js";
+
 /** Languages supported for speech generation. */
-export type Language = "am" | "om" | "ti" | "sid" | "wal" | "ha" | "sw" | "en" | "fr";
+export type Language = "am" | "om" | "ti";
+
+export function isVoiceLanguage(value: unknown): value is Language {
+  return value === "am" || value === "om" || value === "ti";
+}
+
+/** Runtime validation also protects JavaScript callers without TypeScript. */
+export function assertVoiceLanguage(value: unknown): asserts value is Language {
+  if (!isVoiceLanguage(value)) {
+    throw new AddisAIError("Voice language must be am (Amharic), om (Afaan Oromo), or ti (Tigrinya).");
+  }
+}
 
 /** Languages supported for chat, including multimodal inputs. */
 export type ChatLanguage = "am" | "om" | "ti";

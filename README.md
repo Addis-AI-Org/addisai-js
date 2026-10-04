@@ -61,8 +61,10 @@ The API key is read from the `apiKey` option or the `ADDIS_API_KEY` environment 
 | Afaan Oromo | `om` | Bikila | `om-bikila` |
 | Tigrinya | `ti` | Berhane | `ti-berhane` |
 
-Use a matching language and voice ID for speech generation. Fetch the current
-catalog with `voices.list` to choose another available voice.
+Voice generation and real-time sessions support these three languages. Other
+language codes are rejected locally before any API request or socket connection.
+Use a matching language and voice ID. `voices.list` returns this three-language
+catalog so you can choose another available voice.
 
 ## Voice (text‑to‑speech)
 

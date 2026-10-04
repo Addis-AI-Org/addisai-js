@@ -1,6 +1,6 @@
 import { AddisAIError } from "../core/errors.js";
 import type { FetchLike } from "../core/request.js";
-import type { Language, OutputFormat } from "../resources/shared.js";
+import type { OutputFormat } from "../resources/shared.js";
 
 export interface ClipUsage {
   /** Current Voice 2 clips use minute billing; older clips may use character billing. */
@@ -27,7 +27,8 @@ export interface ClipData {
   voiceId: string;
   voiceName: string;
   voiceDescriptor: string;
-  language: Language;
+  /** Language recorded when this clip was generated, including older clips. */
+  language: string;
   outputFormat: OutputFormat;
   audioUrl: string;
   mimeType: string;
@@ -53,7 +54,7 @@ export class AddisClip implements ClipData {
   readonly voiceId!: string;
   readonly voiceName!: string;
   readonly voiceDescriptor!: string;
-  readonly language!: Language;
+  readonly language!: string;
   readonly outputFormat!: OutputFormat;
   readonly audioUrl!: string;
   readonly mimeType!: string;

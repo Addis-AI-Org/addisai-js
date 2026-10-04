@@ -62,7 +62,7 @@ export interface ChatCompletionCreateParams {
   /** Accepted for OpenAI compatibility. Addis selects the model internally. */
   model?: string;
   messages: ChatCompletionMessage[];
-  /** Target language. "am" (Amharic) or "om" (Afan Oromo). Default "am". */
+  /** Target language: am (Amharic), om (Afaan Oromo), or ti (Tigrinya). Default am. */
   language?: ChatLanguage;
   /** Extra behaviour instructions (tone/format). Does not change identity. */
   system?: string;

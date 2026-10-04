@@ -1,7 +1,7 @@
 import { AddisAIError } from "../core/errors.js";
 import { type RequestOptions, type Transport } from "../core/request.js";
 import { AudioStream } from "../lib/audio-stream.js";
-import type { Language } from "./shared.js";
+import { assertVoiceLanguage, type Language } from "./shared.js";
 
 let warned = false;
 function warnOnce(): void {
@@ -25,7 +25,7 @@ function decodeBase64(b64: string): Uint8Array {
 
 export interface LegacyAudioParams {
   text: string;
-  /** "am" | "om". */
+  /** Amharic, Afaan Oromo, or Tigrinya. */
   language: Language;
 }
 
@@ -65,6 +65,7 @@ export class LegacyAudioResource {
    * Synthesize speech via the legacy endpoint (non-streaming).
    */
   async generate(params: LegacyAudioParams, opts: RequestOptions = {}): Promise<LegacyAudio> {
+    assertVoiceLanguage(params.language);
     warnOnce();
     const body = await this.transport.request<{ audio?: string; audio_chunk?: string }>(
       { method: "POST", path: "/api/v1/audio", body: { text: params.text, language: params.language, stream: false } },
@@ -83,6 +84,7 @@ export class LegacyAudioResource {
    * stream. New code should not depend on this.
    */
   async stream(params: LegacyAudioParams, opts: RequestOptions = {}): Promise<AudioStream> {
+    assertVoiceLanguage(params.language);
     warnOnce();
     const { response, controller } = await this.transport.openStream(
       { method: "POST", path: "/api/v1/audio", body: { text: params.text, language: params.language, stream: true } },

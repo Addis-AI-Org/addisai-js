@@ -2,10 +2,13 @@ import AddisAI from "addisai";
 import { createWriteStream } from "node:fs";
 import { once } from "node:events";
 
-const addis = new AddisAI(); // ADDIS_API_KEY
 const text = process.argv[2];
 if (!text) throw new Error('Usage: node examples/realtime.mjs "A complete sentence to speak"');
 const language = process.env.ADDIS_VOICE_LANGUAGE ?? "am";
+if (!["am", "om", "ti"].includes(language)) {
+  throw new Error("ADDIS_VOICE_LANGUAGE must be am, om, or ti.");
+}
+const addis = new AddisAI(); // ADDIS_API_KEY
 let voiceId = process.env.ADDIS_VOICE_ID;
 if (!voiceId) {
   const voices = await addis.voices.list({ language });
