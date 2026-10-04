@@ -2,11 +2,16 @@ name: publish
 
 # Publishes `addisai` to npm with provenance.
 # Create a GitHub Release (tag e.g. v0.1.0) to trigger, or run manually.
-# Requires the NPM_TOKEN repository secret (an npm automation/granular token).
+# Uses npm trusted publishing when configured; NPM_TOKEN remains a fallback.
 on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      release_ref:
+        description: "Release tag or commit to publish (blank uses the selected ref)"
+        required: false
+        type: string
 
 jobs:
   publish:
@@ -16,11 +21,17 @@ jobs:
       id-token: write # npm provenance
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_ref || github.ref }}
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # npm trusted publishing needs Node >=22.14 and npm >=11.5.1.
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
-          cache: npm
+      - name: Verify publishing runtime
+        run: |
+          node --version
+          npm --version
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
