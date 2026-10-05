@@ -277,6 +277,49 @@ const stream = await addis.chat.completions.create({ language: "am", messages, s
 
 Streaming is beta and not available with tools; non‑streaming is recommended for production.
 
+## Addis Scribe (0.4.0)
+
+Scribe transcribes **Amharic**, with CPU/GPU inference at the same character rate.
+Save a request ID before sending audio; recover it after an interrupted response.
+
+```ts
+const requestId = ulid();
+const result = await addis.scribe.transcribe({
+  audio: await fileFromPath("speech.wav"), backend: "cpu", requestId,
+});
+console.log(result.text, result.usage.creditsUsed);
+// Recovery returns the original settled result without another charge:
+// const recovered = await addis.scribe.recover(requestId);
+
+const stream = await addis.scribe.stream({
+  audio: await fileFromPath("speech.wav"), requestId: ulid(),
+});
+for await (const event of stream) {
+  if (event.type === "transcript.partial") console.log(event.text);
+  if (event.type === "transcript.completed") console.log(event.data.usage);
+}
+```
+
+`addis.scribe.connect({ requestId })` opens live audio. Read its async event iterator
+while calling `sendAudio(frame)` with **raw 16 kHz mono PCM16 little-endian**
+(3,200 bytes per 100 ms), then call `finish()` and read the settled completion.
+`completion` includes the final transcript and usage. Use `createSession` on your
+server and exported `connectScribe(session)` for a browser; the first socket frame
+contains only the scoped one-use ticket. Socket URLs contain no credentials.
+Python uses equivalent snake_case names. `capabilities()` returns model limits and
+`usage()` returns your wallet balance and current rate.
+
+HTTP uploads accept 25 MiB / 180 seconds. File streams emit partials after upload;
+WebSockets accept audio incrementally. HTTP defaults to CPU/1120ms chunks; sockets
+to CPU/320ms. Tickets expire after 60 seconds. One request is admitted per wallet.
+Only final transcript UTF-16 character units are billed; partials have no separate
+charge. Paid requests/ticket creation are not automatically retried. Disconnecting
+or closing a stream can still bill accepted audio. Recover settled results for 24
+hours; pending settlement remains recoverable. New audio/settings need a new ID.
+
+See the [Scribe guide](https://docs.addisassistant.com/docs/capabilities/speech-to-text)
+for complete live PCM, recovery and billing examples.
+
 ## Speech‑to‑text & translation
 
 ```ts

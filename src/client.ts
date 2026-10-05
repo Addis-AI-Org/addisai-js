@@ -16,6 +16,7 @@ import { Translate } from "./resources/translate.js";
 import { TextToSpeech } from "./resources/text-to-speech.js";
 import { Legacy } from "./resources/legacy.js";
 import { Realtime } from "./resources/realtime.js";
+import { Scribe } from "./resources/scribe.js";
 
 export interface ClientOptions {
   /** Addis AI API key. Defaults to `process.env.ADDIS_API_KEY`. */
@@ -43,6 +44,7 @@ export class AddisAI {
   readonly voice: Voice;
   readonly voices: Voices;
   readonly speech: Speech;
+  readonly scribe: Scribe;
   readonly translate: Translate;
   readonly realtime: Realtime;
   /** ElevenLabs-style alias over `voice.*` for developers migrating. */
@@ -94,6 +96,7 @@ export class AddisAI {
     this.voice = new Voice(this._transport);
     this.voices = new Voices(this._transport);
     this.speech = new Speech(this._transport);
+    this.scribe = new Scribe(this._transport);
     this.translate = new Translate(this._transport);
     this.realtime = new Realtime(this._transport);
     this.textToSpeech = new TextToSpeech(this.voice);

@@ -93,3 +93,7 @@ export type { ConvertParams } from "./resources/text-to-speech.js";
 // Legacy (deprecated)
 export { LegacyAudio } from "./resources/legacy.js";
 export type { LegacyAudioParams } from "./resources/legacy.js";
+
+// Addis Scribe (Amharic file and live transcription)
+export { connectScribe, ScribeConnection, ScribeTranscriptStream } from "./resources/scribe.js";
+export type { ScribeParams, ScribeTranscribeParams, ScribeTranscription, ScribeUsage, ScribeAccountUsage, ScribeCapabilities, ScribeBackend, ScribeChunk, ScribeSession, ScribeEvent, ScribeConnectOptions, ScribeSocket } from "./resources/scribe.js";
