@@ -1,8 +1,8 @@
 import { expect, it } from "vitest";
 import AddisAI, { connectScribe, type ScribeSession, type ScribeSocket } from "../src/index.js";
 
-const raw = { text: "ሰላም😀", request_id: "stable", seconds: 1, compute_ms: 5, backend: "cpu", chunk: "1120ms", mode: "offline", model: "addis-scribe-streaming", usage: { record_id: "ledger", characters: 6, price_per_1000_characters: 3.5, credits_used: .021, credits_remaining: 9.979, currency: "ETB", settled: true } };
-const ticket: ScribeSession = { token: "ephemeral", requestId: "stable", expiresAt: 9999999999, websocketUrl: "wss://api.addisassistant.com/api/v1/scribe/stream", backend: "cpu", chunk: "320ms", maxAudioSeconds: 180 };
+const raw = { text: "ሰላም😀", request_id: "stable", seconds: 1, compute_ms: 5, backend: "standard", chunk: "1120ms", mode: "offline", model: "addis-scribe-streaming", usage: { record_id: "ledger", characters: 6, price_per_1000_characters: 3.5, credits_used: .021, credits_remaining: 9.979, currency: "ETB", settled: true } };
+const ticket: ScribeSession = { token: "ephemeral", requestId: "stable", expiresAt: 9999999999, websocketUrl: "wss://api.addisassistant.com/api/v1/scribe/stream", backend: "standard", chunk: "320ms", maxAudioSeconds: 180 };
 function client(fetch: typeof globalThis.fetch) { return new AddisAI({ apiKey: "test-secret", fetch }); }
 function ndjson(events: unknown[]): Response {
   const bytes = new TextEncoder().encode(events.map(e => JSON.stringify(e)).join("\n")); let i = 0;
@@ -53,7 +53,7 @@ it("validates inputs before HTTP and recovers a result without uploading audio",
 });
 it("maps capabilities, usage and default microphone session parameters", async () => {
   const addis = client(async (url, init) => {
-    if (String(url).endsWith("/sessions")) { expect(JSON.parse(String(init?.body))).toEqual({ backend: "cpu", chunk: "320ms", request_id: "stable" }); return Response.json({ data: { ...ticket, websocket_url: ticket.websocketUrl, request_id: "stable" } }); }
+    if (String(url).endsWith("/sessions")) { expect(JSON.parse(String(init?.body))).toEqual({ backend: "standard", chunk: "320ms", request_id: "stable" }); return Response.json({ data: { ...ticket, websocket_url: ticket.websocketUrl, request_id: "stable" } }); }
     if (String(url).endsWith("/usage")) return Response.json({ data: { balance: 10, currency: "ETB", pricing: { unit: "character", price_per_1000_characters: 3.5 } } });
     return Response.json({ data: { language: "am", max_audio_seconds: 180 } });
   });

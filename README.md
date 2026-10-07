@@ -277,15 +277,16 @@ const stream = await addis.chat.completions.create({ language: "am", messages, s
 
 Streaming is beta and not available with tools; non‑streaming is recommended for production.
 
-## Addis Scribe (0.4.0)
+## Addis Scribe
 
-Scribe transcribes **Amharic**, with CPU/GPU inference at the same character rate.
+Scribe transcribes **Amharic**. Choose `backend: "standard"` (default) or
+`backend: "turbo"`; both bill the same character rate.
 Save a request ID before sending audio; recover it after an interrupted response.
 
 ```ts
 const requestId = ulid();
 const result = await addis.scribe.transcribe({
-  audio: await fileFromPath("speech.wav"), backend: "cpu", requestId,
+  audio: await fileFromPath("speech.wav"), backend: "standard", requestId,
 });
 console.log(result.text, result.usage.creditsUsed);
 // Recovery returns the original settled result without another charge:
@@ -300,6 +301,36 @@ for await (const event of stream) {
 }
 ```
 
+### Word timestamps and captions
+
+Pass `timestamps: "word"` to `transcribe()` to receive `words` and caption-ready
+`segments` (times in seconds from the start of the file). Timestamps cost nothing
+extra. `toSrt()` and `toVtt()` format the segments locally, without another API call,
+wrapping each cue at 42 characters per line and at most 2 lines.
+
+```ts
+import { writeFile } from "node:fs/promises";
+import { fileFromPath, toSrt, toVtt, ulid } from "addisai";
+
+const result = await addis.scribe.transcribe({
+  audio: await fileFromPath("speech.wav"), timestamps: "word", requestId: ulid(),
+});
+console.log(result.words?.[0]);    // { text: "ሰላም", start: 18.9, end: 19.52 }
+await writeFile("speech.srt", toSrt(result));
+await writeFile("speech.vtt", toVtt(result));
+// 1
+// 00:00:18,800 --> 00:00:21,800
+// ሰላም ወዳጆቻችን እንዴት ከረማችሁ ዛሬ እንግዲህ እንግዳ አድርጌ
+// ያቀረኩላችሁ
+```
+
+Timestamps are available for completed uploads only: `stream()` rejects
+`timestamps: "word"` locally, and live sessions do not return timestamps.
+`toSrt()`/`toVtt()` throw if the result has no `segments`; they also work on a
+result from `recover()` when the original request used timestamps.
+
+### Live audio
+
 `addis.scribe.connect({ requestId })` opens live audio. Read its async event iterator
 while calling `sendAudio(frame)` with **raw 16 kHz mono PCM16 little-endian**
 (3,200 bytes per 100 ms), then call `finish()` and read the settled completion.
@@ -310,8 +341,8 @@ Python uses equivalent snake_case names. `capabilities()` returns model limits a
 `usage()` returns your wallet balance and current rate.
 
 HTTP uploads accept 25 MiB / 180 seconds. File streams emit partials after upload;
-WebSockets accept audio incrementally. HTTP defaults to CPU/1120ms chunks; sockets
-to CPU/320ms. Tickets expire after 60 seconds. One request is admitted per wallet.
+WebSockets accept audio incrementally. HTTP defaults to standard/1120ms chunks; sockets
+to standard/320ms. Tickets expire after 60 seconds. One request is admitted per wallet.
 Only final transcript UTF-16 character units are billed; partials have no separate
 charge. Paid requests/ticket creation are not automatically retried. Disconnecting
 or closing a stream can still bill accepted audio. Recover settled results for 24
