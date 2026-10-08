@@ -6,10 +6,28 @@ import { toBlob, type Uploadable } from "../core/uploads.js";
 
 const PATH = "/api/v1/scribe";
 const MAX_EVENT = 512 * 1024;
-export type ScribeBackend = "cpu" | "gpu";
+/** Inference backend; both bill the same character rate. */
+export type ScribeBackend = "standard" | "turbo";
 export type ScribeChunk = "320ms" | "1120ms";
-export interface ScribeParams { backend?: ScribeBackend; chunk?: ScribeChunk; requestId?: string }
-export interface ScribeTranscribeParams extends ScribeParams { audio: Uploadable }
+/** Timestamp detail for completed uploads; `"word"` adds `words` and `segments`. */
+export type ScribeTimestamps = "none" | "word";
+/** One recognized word, in seconds from the start of the file. */
+export interface ScribeWord { text: string; start: number; end: number }
+/** One caption cue (single line of text), in seconds from the start of the file. */
+export interface ScribeSegment { text: string; start: number; end: number }
+export interface ScribeParams {
+  /** Inference backend. Defaults to `"standard"`. */
+  backend?: ScribeBackend;
+  /** Decoder chunk size. Defaults to `"1120ms"` for uploads and `"320ms"` for live sessions. */
+  chunk?: ScribeChunk;
+  /** Stable ID used for recovery and idempotency. Defaults to a new ULID. */
+  requestId?: string;
+}
+export interface ScribeTranscribeParams extends ScribeParams {
+  audio: Uploadable;
+  /** Word timestamps and caption segments (`transcribe` only). Defaults to `"none"`; sent only when set. */
+  timestamps?: ScribeTimestamps;
+}
 export interface ScribeUsage {
   recordId: string; characters: number; pricePer1000Characters: number;
   creditsUsed: number; creditsRemaining: number; currency: "ETB"; settled: true;
@@ -18,6 +36,10 @@ export interface ScribeTranscription {
   text: string; requestId: string; seconds: number; computeMs: number;
   backend: ScribeBackend; chunk: ScribeChunk; mode: "offline" | "live" | "upload_stream";
   model: string; usage: ScribeUsage; idempotentReplay?: boolean;
+  /** Word timings; present when transcribed with `timestamps: "word"`. */
+  words?: ScribeWord[];
+  /** Caption cues; present when transcribed with `timestamps: "word"`. Format with `toSrt`/`toVtt`. */
+  segments?: ScribeSegment[];
 }
 export interface ScribeSession {
   token: string; expiresAt: number; websocketUrl: string; maxAudioSeconds: number;
@@ -41,12 +63,17 @@ export type ScribeEvent =
   | { type: "transcript.completed"; data: ScribeTranscription };
 
 function parameters(params: ScribeParams, chunk: ScribeChunk) {
-  const backend = params.backend ?? "cpu";
+  const backend = params.backend ?? "standard";
   const chosenChunk = params.chunk ?? chunk;
   const requestId = params.requestId ?? ulid();
-  if (!["cpu", "gpu"].includes(backend) || !["320ms", "1120ms"].includes(chosenChunk)) throw new AddisAIError("Invalid Scribe backend or chunk.");
+  if (!["standard", "turbo"].includes(backend) || !["320ms", "1120ms"].includes(chosenChunk)) throw new AddisAIError("Invalid Scribe backend or chunk.");
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(requestId)) throw new AddisAIError("Scribe requestId must contain 1–128 letters, digits, underscores or hyphens.");
   return { backend, chunk: chosenChunk, request_id: requestId };
+}
+function timestampsQuery(value: ScribeTimestamps | undefined): { timestamps?: ScribeTimestamps } {
+  if (value === undefined) return {};
+  if (value !== "none" && value !== "word") throw new AddisAIError('Scribe timestamps must be "none" or "word".');
+  return { timestamps: value };
 }
 function completion(value: unknown): ScribeTranscription {
   const data = camelize<ScribeTranscription>(value);
@@ -79,13 +106,14 @@ export class Scribe {
     parameters({ requestId }, "1120ms");
     return completion(unwrapData(await this.transport.request({ method: "GET", path: `${PATH}/requests/${requestId}` }, { ...opts, maxRetries: 0 })));
   }
-  /** Amharic file transcription; retries are disabled. Recover requestId after interruptions. */
+  /** Amharic file transcription; retries are disabled. Pass `timestamps: "word"` for words and caption segments. */
   async transcribe(params: ScribeTranscribeParams, opts: RequestOptions = {}): Promise<ScribeTranscription> {
-    const query = parameters(params, "1120ms");
+    const query = { ...parameters(params, "1120ms"), ...timestampsQuery(params.timestamps) };
     return completion(unwrapData(await this.transport.request({ method: "POST", path: `${PATH}/transcribe`, query: { ...query, stream: false }, form: audioForm(params.audio), timeoutFloor: 600_000 }, { ...opts, maxRetries: 0 })));
   }
   /** Upload a file and iterate provisional text, followed by settled completion. */
   async stream(params: ScribeTranscribeParams, opts: RequestOptions = {}): Promise<ScribeTranscriptStream> {
+    if (timestampsQuery(params.timestamps).timestamps === "word") throw new AddisAIError('Scribe timestamps are available only for completed uploads; use transcribe() with timestamps: "word" instead of stream().');
     const query = parameters(params, "1120ms");
     const { response, controller } = await this.transport.openStream({ method: "POST", path: `${PATH}/transcribe`, query: { ...query, stream: true }, form: audioForm(params.audio) }, { timeout: 600_000, ...opts });
     return new ScribeTranscriptStream(response, controller, query.request_id);
