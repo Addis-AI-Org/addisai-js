@@ -329,6 +329,40 @@ Timestamps are available for completed uploads only: `stream()` rejects
 `toSrt()`/`toVtt()` throw if the result has no `segments`; they also work on a
 result from `recover()` when the original request used timestamps.
 
+#### Speaker labels
+
+Pass `speakers: true` with `backend: "turbo"` to label who is talking. It turns on
+word timestamps, costs nothing extra, and adds a `speaker` number to every word and
+segment plus a `speakers` count on the result. Speakers are numbered 1, 2, … in the
+order they first talk; a word that could not be attributed has `speaker: null`.
+A new caption cue starts whenever the speaker changes. `toSrt()` starts each labelled
+cue with `Speaker N: `, and `toVtt()` marks it with a `<v Speaker N>` voice tag.
+
+```ts
+const result = await addis.scribe.transcribe({
+  audio: await fileFromPath("interview.wav"), backend: "turbo", speakers: true,
+  requestId: ulid(),
+});
+console.log(result.speakers);          // 2
+await writeFile("interview.srt", toSrt(result));
+// 1
+// 00:00:00,600 --> 00:00:01,600
+// Speaker 1: ሰላም ወዳጆቻችን
+//
+// 2
+// 00:00:01,700 --> 00:00:03,000
+// Speaker 2: እንዴት ናችሁ
+```
+
+Good to know:
+
+- Speaker labels need `backend: "turbo"`; other backends fail locally before any
+  request. `stream()` and live sessions do not support them.
+- On simulated Amharic conversations, 97.8% of words got the right speaker.
+- Labels work best with 2 to 4 people and get less accurate when people talk over
+  each other.
+- Labels are "Speaker 1", "Speaker 2" and so on, not names.
+
 ### Live audio
 
 `addis.scribe.connect({ requestId })` opens live audio. Read its async event iterator
