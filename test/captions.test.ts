@@ -63,3 +63,56 @@ describe("caption helpers", () => {
     expect(() => toVtt({ segments: undefined })).toThrow(/segments/);
   });
 });
+
+describe("Scribe speaker labels", () => {
+  const labelled: ScribeSegment[] = [
+    { text: "ሰላም ወዳጆቻችን", start: 0.6, end: 1.6, speaker: 1 },
+    { text: "እንዴት ናችሁ", start: 1.7, end: 3.0, speaker: 2 },
+  ];
+  it("sends speakers=true only when true", async () => {
+    const seen: URL[] = [];
+    const addis = client(async url => { seen.push(new URL(String(url))); return Response.json({ data: raw }); });
+    await addis.scribe.transcribe({ audio: new Uint8Array([1]), requestId: "a", backend: "turbo" });
+    await addis.scribe.transcribe({ audio: new Uint8Array([1]), requestId: "b", backend: "turbo", speakers: false });
+    await addis.scribe.transcribe({ audio: new Uint8Array([1]), requestId: "c", backend: "turbo", speakers: true });
+    expect(seen[0].searchParams.has("speakers")).toBe(false);
+    expect(seen[1].searchParams.has("speakers")).toBe(false);
+    expect(seen[2].searchParams.get("speakers")).toBe("true");
+    expect(seen[2].searchParams.get("backend")).toBe("turbo");
+  });
+  it("requires the turbo backend before HTTP", async () => {
+    let calls = 0; const addis = client(async () => { calls++; return Response.json({ data: raw }); });
+    await expect(addis.scribe.transcribe({ audio: new Uint8Array([1]), speakers: true })).rejects.toThrow(/turbo/);
+    await expect(addis.scribe.transcribe({ audio: new Uint8Array([1]), backend: "standard", speakers: true })).rejects.toThrow(/backend: "turbo"/);
+    await expect(addis.scribe.transcribe({ audio: new Uint8Array([1]), backend: "turbo", speakers: "yes" as never })).rejects.toThrow(/speakers/);
+    expect(calls).toBe(0);
+  });
+  it("rejects speakers on stream() locally", async () => {
+    let calls = 0; const addis = client(async () => { calls++; return Response.json({ data: raw }); });
+    await expect(addis.scribe.stream({ audio: new Uint8Array([1]), backend: "turbo", speakers: true })).rejects.toThrow(/completed uploads.*transcribe\(\)/);
+    expect(calls).toBe(0);
+  });
+  it("surfaces speaker fields on words, segments and the result", async () => {
+    const words = [{ text: "ሰላም", start: 0.98, end: 1.08, speaker: 1 }, { text: "እ", start: 1.1, end: 1.2, speaker: null }];
+    const addis = client(async () => Response.json({ data: { ...raw, backend: "turbo", words, segments: labelled, speakers: 2 } }));
+    const result = await addis.scribe.transcribe({ audio: new Uint8Array([1]), backend: "turbo", speakers: true });
+    expect(result.words).toEqual(words);
+    expect(result.segments?.map(s => s.speaker)).toEqual([1, 2]);
+    expect(result.speakers).toBe(2);
+  });
+  it("matches the shared SRT and VTT test vector byte-for-byte", () => {
+    expect(toSrt({ segments: labelled })).toBe("1\n00:00:00,600 --> 00:00:01,600\nSpeaker 1: ሰላም ወዳጆቻችን\n\n2\n00:00:01,700 --> 00:00:03,000\nSpeaker 2: እንዴት ናችሁ\n");
+    expect(toVtt({ segments: labelled })).toBe("WEBVTT\n\n00:00:00.600 --> 00:00:01.600\n<v Speaker 1>ሰላም ወዳጆቻችን\n\n00:00:01.700 --> 00:00:03.000\n<v Speaker 2>እንዴት ናችሁ\n");
+  });
+  it("counts the SRT prefix toward the 42-character lines but not the VTT voice span", () => {
+    const text = `${"ሀ".repeat(30)} ${"በ".repeat(10)}`; // 41 characters: one line without a prefix
+    const segments = [{ text, start: 0, end: 1, speaker: 3 }];
+    expect(toSrt({ segments })).toBe(`1\n00:00:00,000 --> 00:00:01,000\nSpeaker 3: ${"ሀ".repeat(30)}\n${"በ".repeat(10)}\n`);
+    expect(toVtt({ segments })).toBe(`WEBVTT\n\n00:00:00.000 --> 00:00:01.000\n<v Speaker 3>${text}\n`);
+  });
+  it("leaves null-speaker and unlabelled segments unchanged", () => {
+    const segments = [{ text: "ሰላም", start: 0, end: 1, speaker: null }, { text: "ቃል", start: 1, end: 2 }];
+    expect(toSrt({ segments })).toBe("1\n00:00:00,000 --> 00:00:01,000\nሰላም\n\n2\n00:00:01,000 --> 00:00:02,000\nቃል\n");
+    expect(toVtt({ segments })).toBe("WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nሰላም\n\n00:00:01.000 --> 00:00:02.000\nቃል\n");
+  });
+});

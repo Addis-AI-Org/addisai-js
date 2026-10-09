@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.0
+
+- **Scribe speaker labels:** `scribe.transcribe({ backend: "turbo", speakers: true })`
+  adds `speaker` (1-based number, or `null` when a word could not be attributed) to
+  every word and segment, and a `speakers` count to the result. The `speakers` query
+  parameter is sent only when `true`; the default is `false`. Speaker labels require
+  `backend: "turbo"` and turn on word timestamps; other backends and `scribe.stream()`
+  reject `speakers: true` locally.
+- **Captions:** `toSrt()` prefixes labelled cues with `Speaker N: ` (counted toward
+  the 42-character line limit) and `toVtt()` opens them with a `<v Speaker N>` voice
+  span. Segments without a speaker are formatted exactly as in 0.5.0.
+- New optional fields: `ScribeWord.speaker`, `ScribeSegment.speaker`,
+  `ScribeTranscription.speakers`, and `ScribeTranscribeParams.speakers`.
+
 ## 0.5.0
 
 - **Scribe word timestamps:** `scribe.transcribe({ timestamps: "word" })` returns

@@ -12,9 +12,17 @@ export type ScribeChunk = "320ms" | "1120ms";
 /** Timestamp detail for completed uploads; `"word"` adds `words` and `segments`. */
 export type ScribeTimestamps = "none" | "word";
 /** One recognized word, in seconds from the start of the file. */
-export interface ScribeWord { text: string; start: number; end: number }
+export interface ScribeWord {
+  text: string; start: number; end: number;
+  /** Speaker number (1-based, by first appearance); `null` if it could not be attributed. Present only with `speakers: true`. */
+  speaker?: number | null;
+}
 /** One caption cue (single line of text), in seconds from the start of the file. */
-export interface ScribeSegment { text: string; start: number; end: number }
+export interface ScribeSegment {
+  text: string; start: number; end: number;
+  /** Speaker number (1-based, by first appearance) or `null`. Present only with `speakers: true`; `toSrt`/`toVtt` label cues with it. */
+  speaker?: number | null;
+}
 export interface ScribeParams {
   /** Inference backend. Defaults to `"standard"`. */
   backend?: ScribeBackend;
@@ -27,6 +35,11 @@ export interface ScribeTranscribeParams extends ScribeParams {
   audio: Uploadable;
   /** Word timestamps and caption segments (`transcribe` only). Defaults to `"none"`; sent only when set. */
   timestamps?: ScribeTimestamps;
+  /**
+   * Speaker labels on words and segments (`transcribe` only). Defaults to `false`; sent as `speakers=true` only when true.
+   * Turbo only: requires `backend: "turbo"`. Turns on word timestamps.
+   */
+  speakers?: boolean;
 }
 export interface ScribeUsage {
   recordId: string; characters: number; pricePer1000Characters: number;
@@ -40,6 +53,8 @@ export interface ScribeTranscription {
   words?: ScribeWord[];
   /** Caption cues; present when transcribed with `timestamps: "word"`. Format with `toSrt`/`toVtt`. */
   segments?: ScribeSegment[];
+  /** Number of distinct speakers; present when transcribed with `speakers: true`. */
+  speakers?: number;
 }
 export interface ScribeSession {
   token: string; expiresAt: number; websocketUrl: string; maxAudioSeconds: number;
@@ -75,6 +90,13 @@ function timestampsQuery(value: ScribeTimestamps | undefined): { timestamps?: Sc
   if (value !== "none" && value !== "word") throw new AddisAIError('Scribe timestamps must be "none" or "word".');
   return { timestamps: value };
 }
+function speakersQuery(params: ScribeTranscribeParams): { speakers?: "true" } {
+  const value = params.speakers;
+  if (value === undefined || value === false) return {};
+  if (value !== true) throw new AddisAIError("Scribe speakers must be true or false.");
+  if ((params.backend ?? "standard") !== "turbo") throw new AddisAIError('Scribe speaker labels are available on the turbo backend; pass backend: "turbo" with speakers: true.');
+  return { speakers: "true" };
+}
 function completion(value: unknown): ScribeTranscription {
   const data = camelize<ScribeTranscription>(value);
   if (typeof data?.text !== "string" || data.usage?.settled !== true) throw new AddisAIError("Scribe ended without settled billing. Recover the same requestId before retrying.");
@@ -106,13 +128,17 @@ export class Scribe {
     parameters({ requestId }, "1120ms");
     return completion(unwrapData(await this.transport.request({ method: "GET", path: `${PATH}/requests/${requestId}` }, { ...opts, maxRetries: 0 })));
   }
-  /** Amharic file transcription; retries are disabled. Pass `timestamps: "word"` for words and caption segments. */
+  /**
+   * Amharic file transcription; retries are disabled. Pass `timestamps: "word"` for words and caption segments,
+   * or `speakers: true` with `backend: "turbo"` for speaker-labelled words and segments.
+   */
   async transcribe(params: ScribeTranscribeParams, opts: RequestOptions = {}): Promise<ScribeTranscription> {
-    const query = { ...parameters(params, "1120ms"), ...timestampsQuery(params.timestamps) };
+    const query = { ...parameters(params, "1120ms"), ...timestampsQuery(params.timestamps), ...speakersQuery(params) };
     return completion(unwrapData(await this.transport.request({ method: "POST", path: `${PATH}/transcribe`, query: { ...query, stream: false }, form: audioForm(params.audio), timeoutFloor: 600_000 }, { ...opts, maxRetries: 0 })));
   }
   /** Upload a file and iterate provisional text, followed by settled completion. */
   async stream(params: ScribeTranscribeParams, opts: RequestOptions = {}): Promise<ScribeTranscriptStream> {
+    if (params.speakers === true) throw new AddisAIError('Scribe speaker labels are available only for completed uploads; use transcribe() with backend: "turbo" and speakers: true instead of stream().');
     if (timestampsQuery(params.timestamps).timestamps === "word") throw new AddisAIError('Scribe timestamps are available only for completed uploads; use transcribe() with timestamps: "word" instead of stream().');
     const query = parameters(params, "1120ms");
     const { response, controller } = await this.transport.openStream({ method: "POST", path: `${PATH}/transcribe`, query: { ...query, stream: true }, form: audioForm(params.audio) }, { timeout: 600_000, ...opts });
