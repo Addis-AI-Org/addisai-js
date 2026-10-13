@@ -53,7 +53,7 @@ it("validates inputs before HTTP and recovers a result without uploading audio",
 });
 it("maps capabilities, usage and default microphone session parameters", async () => {
   const addis = client(async (url, init) => {
-    if (String(url).endsWith("/sessions")) { expect(JSON.parse(String(init?.body))).toEqual({ backend: "standard", chunk: "320ms", request_id: "stable" }); return Response.json({ data: { ...ticket, websocket_url: ticket.websocketUrl, request_id: "stable" } }); }
+    if (String(url).endsWith("/sessions")) { expect(JSON.parse(String(init?.body))).toEqual({ backend: "turbo", chunk: "320ms", request_id: "stable" }); return Response.json({ data: { ...ticket, websocket_url: ticket.websocketUrl, request_id: "stable" } }); }
     if (String(url).endsWith("/usage")) return Response.json({ data: { balance: 10, currency: "ETB", pricing: { unit: "character", price_per_1000_characters: 3.5 } } });
     return Response.json({ data: { language: "am", max_audio_seconds: 180 } });
   });

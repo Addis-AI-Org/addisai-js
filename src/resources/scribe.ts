@@ -24,7 +24,7 @@ export interface ScribeSegment {
   speaker?: number | null;
 }
 export interface ScribeParams {
-  /** Inference backend. Defaults to `"standard"`. */
+  /** Inference backend. Defaults to `"turbo"` (since 0.7.0): faster, many requests at once, same price per character. */
   backend?: ScribeBackend;
   /** Decoder chunk size. Defaults to `"1120ms"` for uploads and `"320ms"` for live sessions. */
   chunk?: ScribeChunk;
@@ -78,7 +78,7 @@ export type ScribeEvent =
   | { type: "transcript.completed"; data: ScribeTranscription };
 
 function parameters(params: ScribeParams, chunk: ScribeChunk) {
-  const backend = params.backend ?? "standard";
+  const backend = params.backend ?? "turbo";
   const chosenChunk = params.chunk ?? chunk;
   const requestId = params.requestId ?? ulid();
   if (!["standard", "turbo"].includes(backend) || !["320ms", "1120ms"].includes(chosenChunk)) throw new AddisAIError("Invalid Scribe backend or chunk.");
@@ -94,7 +94,7 @@ function speakersQuery(params: ScribeTranscribeParams): { speakers?: "true" } {
   const value = params.speakers;
   if (value === undefined || value === false) return {};
   if (value !== true) throw new AddisAIError("Scribe speakers must be true or false.");
-  if ((params.backend ?? "standard") !== "turbo") throw new AddisAIError('Scribe speaker labels are available on the turbo backend; pass backend: "turbo" with speakers: true.');
+  if ((params.backend ?? "turbo") !== "turbo") throw new AddisAIError('Scribe speaker labels are available on the turbo backend; pass backend: "turbo" with speakers: true.');
   return { speakers: "true" };
 }
 function completion(value: unknown): ScribeTranscription {
