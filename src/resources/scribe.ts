@@ -1,11 +1,15 @@
 import { camelize } from "../core/camelize.js";
-import { AddisAIError, makeAPIError } from "../core/errors.js";
+import { AddisAIError, APIError, makeAPIError } from "../core/errors.js";
 import { ulid } from "../core/idempotency.js";
 import { type RequestOptions, type Transport, unwrapData } from "../core/request.js";
 import { toBlob, type Uploadable } from "../core/uploads.js";
 
 const PATH = "/api/v1/scribe";
 const MAX_EVENT = 512 * 1024;
+/** Default live session limit; the server's session.created carries the real one. */
+const LIVE_SECONDS = 600;
+const POLL_MS = 5_000;
+const POLL_LIMIT_MS = 3_600_000;
 /** Inference backend; both bill the same character rate. */
 export type ScribeBackend = "standard" | "turbo";
 export type ScribeChunk = "320ms" | "1120ms";
@@ -134,7 +138,21 @@ export class Scribe {
    */
   async transcribe(params: ScribeTranscribeParams, opts: RequestOptions = {}): Promise<ScribeTranscription> {
     const query = { ...parameters(params, "1120ms"), ...timestampsQuery(params.timestamps), ...speakersQuery(params) };
-    return completion(unwrapData(await this.transport.request({ method: "POST", path: `${PATH}/transcribe`, query: { ...query, stream: false }, form: audioForm(params.audio), timeoutFloor: 600_000 }, { ...opts, maxRetries: 0 })));
+    const data = unwrapData(await this.transport.request({ method: "POST", path: `${PATH}/transcribe`, query: { ...query, stream: false }, form: audioForm(params.audio), timeoutFloor: 600_000 }, { ...opts, maxRetries: 0 }));
+    return completion(await this.settled(data, opts));
+  }
+  /** A long upload answers 202 with `status: "processing"`; poll its request until it is done. */
+  private async settled(data: any, opts: RequestOptions): Promise<unknown> {
+    if (data?.status !== "processing") return data;
+    const deadline = Date.now() + POLL_LIMIT_MS;
+    while (true) {
+      await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+      try {
+        return unwrapData(await this.transport.request({ method: "GET", path: `${PATH}/requests/${data.request_id}` }, { ...opts, maxRetries: 0 }));
+      } catch (error) {
+        if (!(error instanceof APIError) || error.code !== "IN_PROGRESS" || Date.now() > deadline) throw error;
+      }
+    }
   }
   /** Upload a file and iterate provisional text, followed by settled completion. */
   async stream(params: ScribeTranscribeParams, opts: RequestOptions = {}): Promise<ScribeTranscriptStream> {
@@ -154,7 +172,7 @@ export class Scribe {
 }
 function audioForm(input: Uploadable): FormData {
   const { blob, filename } = toBlob(input, "audio/wav");
-  if (!blob.size || blob.size > 25 * 1024 * 1024) throw new AddisAIError("Scribe audio must contain 1 byte to 25 MiB.");
+  if (!blob.size || blob.size > 50 * 1024 * 1024) throw new AddisAIError("Scribe audio must contain 1 byte to 50 MiB.");
   const form = new FormData(); form.append("audio", blob, filename); return form;
 }
 
@@ -222,6 +240,7 @@ export class ScribeConnection implements AsyncIterable<ScribeEvent> {
   readonly requestId: string;
   completion: ScribeTranscription | null = null;
   private queue: Array<{ event: ScribeEvent; size: number }> = [];
+  private maxAudioSeconds?: number;
   private queuedBytes = 0; private audioBytes = 0; private finishing = false; private ended = false; private reading = false;
   private failure?: Error; private wake?: () => void; private admitted = false;
   constructor(private socket: ScribeSocket, session: ScribeSession, timeout: number) {
@@ -239,7 +258,7 @@ export class ScribeConnection implements AsyncIterable<ScribeEvent> {
         const text = String(message.data); if (text.length > MAX_EVENT) throw new AddisAIError("Scribe event exceeds the limit.");
         const event = parseEvent(text);
         if (this.queue.length >= 512 || this.queuedBytes + text.length > 1024 * 1024) throw new AddisAIError("Scribe consumer cannot keep up with transcript events.");
-        if (event.type === "session.created") { this.admitted = true; clearTimeout(timer); resolve(); }
+        if (event.type === "session.created") { this.admitted = true; this.maxAudioSeconds = event.maxAudioSeconds; clearTimeout(timer); resolve(); }
         if (event.type === "transcript.completed") { this.completion = event.data; this.ended = true; clearTimeout(timer); resolve(); }
         this.queue.push({ event, size: text.length }); this.queuedBytes += text.length; this.wake?.();
       } catch (error) { fail(error instanceof Error ? error : new AddisAIError("Invalid Scribe event.")); }
@@ -248,7 +267,8 @@ export class ScribeConnection implements AsyncIterable<ScribeEvent> {
   /** Send raw mono PCM16 little-endian at 16 kHz; a 100 ms frame contains 3,200 bytes. */
   sendAudio(audio: Uint8Array): void {
     if (!this.admitted || this.finishing || this.ended) throw new AddisAIError("Scribe session is not accepting audio.");
-    if (!audio.length || audio.length % 2 || audio.length > 64000 || this.audioBytes + audio.length > 180 * 32000) throw new AddisAIError("Scribe needs PCM16 frames up to two seconds and 180 seconds total.");
+    const limit = this.maxAudioSeconds ?? LIVE_SECONDS;
+    if (!audio.length || audio.length % 2 || audio.length > 64000 || this.audioBytes + audio.length > limit * 32000) throw new AddisAIError(`Scribe needs PCM16 frames up to two seconds and ${limit} seconds total.`);
     if ((this.socket.bufferedAmount ?? 0) > 256000) throw new AddisAIError("Scribe socket cannot keep up with audio. Recover accepted audio before retrying.");
     this.socket.send(audio); this.audioBytes += audio.length;
   }
