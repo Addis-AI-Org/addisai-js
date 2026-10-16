@@ -47,6 +47,11 @@ export interface InternalRequest {
   raw?: boolean;
   /** Minimum effective timeout in ms (e.g. paid synthesis budget). */
   timeoutFloor?: number;
+  /**
+   * "manual" returns a 3xx response (with `raw`) instead of following it, so
+   * the API key is never sent on to a signed storage URL.
+   */
+  redirect?: "follow" | "manual";
 }
 
 const LOG_ORDER: Record<LogLevel, number> = {
@@ -154,6 +159,7 @@ export class Transport {
           headers,
           body: bodyInit,
           signal: controller.signal,
+          ...(req.redirect ? { redirect: req.redirect } : {}),
         });
       } catch (err) {
         clearTimeout(timer);
@@ -174,7 +180,9 @@ export class Transport {
         opts.signal?.removeEventListener("abort", onAbort);
       }
 
-      if (response.ok) {
+      const isRedirect =
+        req.redirect === "manual" && response.status >= 300 && response.status < 400;
+      if (response.ok || isRedirect) {
         if (req.raw) return response as unknown as T;
         return (await this.parseJSON(response)) as T;
       }

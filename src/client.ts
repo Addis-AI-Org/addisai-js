@@ -17,6 +17,8 @@ import { TextToSpeech } from "./resources/text-to-speech.js";
 import { Legacy } from "./resources/legacy.js";
 import { Realtime } from "./resources/realtime.js";
 import { Scribe } from "./resources/scribe.js";
+import { Files } from "./resources/files.js";
+import { Batches } from "./resources/batches.js";
 
 export interface ClientOptions {
   /** Addis AI API key. Defaults to `process.env.ADDIS_API_KEY`. */
@@ -47,6 +49,10 @@ export class AddisAI {
   readonly scribe: Scribe;
   readonly translate: Translate;
   readonly realtime: Realtime;
+  /** Batch input and result files. */
+  readonly files: Files;
+  /** Many requests at once, run off-peak within 24 hours at half price. */
+  readonly batches: Batches;
   /** ElevenLabs-style alias over `voice.*` for developers migrating. */
   readonly textToSpeech: TextToSpeech;
   /** @deprecated Legacy endpoints retained for backward compatibility. Use `voice`. */
@@ -99,6 +105,8 @@ export class AddisAI {
     this.scribe = new Scribe(this._transport);
     this.translate = new Translate(this._transport);
     this.realtime = new Realtime(this._transport);
+    this.files = new Files(this._transport);
+    this.batches = new Batches(this._transport, this.files);
     this.textToSpeech = new TextToSpeech(this.voice);
     this.legacy = new Legacy(this._transport);
   }

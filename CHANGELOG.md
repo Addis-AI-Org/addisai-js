@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- **Batches:** `batches.createFromRequests({ requests })` uploads many text to
+  speech requests at once; they run off-peak and finish within 24 hours at half
+  the standard price. Also `batches.create`, `retrieve`, `list` (auto-paginating),
+  `cancel`, `requests`, `results` (parsed result and error lines) and `waitFor`.
+- **Files:** `files.upload` (one request up to 25 MB, signed upload up to 100 MB),
+  `createSignedUpload`, `complete`, `retrieve`, `delete`, `contentUrl` and
+  `content`. Downloads follow the signed storage link without sending your API key.
+
 ## 0.6.0
 
 - **Scribe speaker labels:** `scribe.transcribe({ backend: "turbo", speakers: true })`
