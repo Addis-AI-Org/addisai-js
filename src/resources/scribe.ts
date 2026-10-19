@@ -7,7 +7,7 @@ import { toBlob, type Uploadable } from "../core/uploads.js";
 const PATH = "/api/v1/scribe";
 const MAX_EVENT = 512 * 1024;
 /** Default live session limit; the server's session.created carries the real one. */
-const LIVE_SECONDS = 600;
+const LIVE_SECONDS = 900;
 const POLL_MS = 5_000;
 const POLL_LIMIT_MS = 3_600_000;
 /** Inference backend; both bill the same character rate. */
@@ -172,7 +172,7 @@ export class Scribe {
 }
 function audioForm(input: Uploadable): FormData {
   const { blob, filename } = toBlob(input, "audio/wav");
-  if (!blob.size || blob.size > 50 * 1024 * 1024) throw new AddisAIError("Scribe audio must contain 1 byte to 50 MiB.");
+  if (!blob.size || blob.size > 95 * 1024 * 1024) throw new AddisAIError("Scribe audio must contain 1 byte to 95 MiB.");
   const form = new FormData(); form.append("audio", blob, filename); return form;
 }
 

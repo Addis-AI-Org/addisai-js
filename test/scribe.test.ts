@@ -48,7 +48,7 @@ it("rejects truncated and unsettled completions and preserves stream error codes
 it("validates inputs before HTTP and recovers a result without uploading audio", async () => {
   let calls = 0; const addis = client(async url => { calls++; expect(String(url)).toContain("/requests/stable"); return Response.json({ data: { ...raw, idempotent_replay: true } }); });
   await expect(addis.scribe.createSession({ requestId: "bad/id" })).rejects.toThrow(/requestId/);
-  await expect(addis.scribe.transcribe({ audio: new Uint8Array() })).rejects.toThrow(/50 MiB/);
+  await expect(addis.scribe.transcribe({ audio: new Uint8Array() })).rejects.toThrow(/95 MiB/);
   expect(calls).toBe(0); expect((await addis.scribe.recover("stable")).idempotentReplay).toBe(true); expect(calls).toBe(1);
 });
 it("maps capabilities, usage and default microphone session parameters", async () => {
