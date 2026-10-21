@@ -5,7 +5,7 @@ import type { SttLanguage } from "./shared.js";
 export interface TranscribeParams {
   /** Audio input. Buffer/Blob/Uint8Array, or a FileInput descriptor. Max 25 MB / 120 s. */
   audio: Uploadable;
-  /** Language of the audio: "am" | "om" | "en" | "ha" | "sw". */
+  /** Language of the audio: "am" | "om" | "ti" | "en" | "ha" | "sw". Tigrinya (`ti`) may return `confidence: null`. */
   language: SttLanguage;
 }
 

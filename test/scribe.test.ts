@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import AddisAI, { connectScribe, type ScribeSession, type ScribeSocket } from "../src/index.js";
 
 const raw = { text: "ሰላም😀", request_id: "stable", seconds: 1, compute_ms: 5, backend: "standard", chunk: "1120ms", mode: "offline", model: "addis-scribe-streaming", usage: { record_id: "ledger", characters: 6, price_per_1000_characters: 3.5, credits_used: .021, credits_remaining: 9.979, currency: "ETB", settled: true } };
@@ -48,12 +48,12 @@ it("rejects truncated and unsettled completions and preserves stream error codes
 it("validates inputs before HTTP and recovers a result without uploading audio", async () => {
   let calls = 0; const addis = client(async url => { calls++; expect(String(url)).toContain("/requests/stable"); return Response.json({ data: { ...raw, idempotent_replay: true } }); });
   await expect(addis.scribe.createSession({ requestId: "bad/id" })).rejects.toThrow(/requestId/);
-  await expect(addis.scribe.transcribe({ audio: new Uint8Array() })).rejects.toThrow(/25 MiB/);
+  await expect(addis.scribe.transcribe({ audio: new Uint8Array() })).rejects.toThrow(/95 MiB/);
   expect(calls).toBe(0); expect((await addis.scribe.recover("stable")).idempotentReplay).toBe(true); expect(calls).toBe(1);
 });
 it("maps capabilities, usage and default microphone session parameters", async () => {
   const addis = client(async (url, init) => {
-    if (String(url).endsWith("/sessions")) { expect(JSON.parse(String(init?.body))).toEqual({ backend: "standard", chunk: "320ms", request_id: "stable" }); return Response.json({ data: { ...ticket, websocket_url: ticket.websocketUrl, request_id: "stable" } }); }
+    if (String(url).endsWith("/sessions")) { expect(JSON.parse(String(init?.body))).toEqual({ backend: "turbo", chunk: "320ms", request_id: "stable" }); return Response.json({ data: { ...ticket, websocket_url: ticket.websocketUrl, request_id: "stable" } }); }
     if (String(url).endsWith("/usage")) return Response.json({ data: { balance: 10, currency: "ETB", pricing: { unit: "character", price_per_1000_characters: 3.5 } } });
     return Response.json({ data: { language: "am", max_audio_seconds: 180 } });
   });
@@ -97,4 +97,19 @@ it("rejects socket URL credentials, invalid PCM and slow audio sending", async (
 it("reports interrupted sockets rather than successful completion", async () => {
   const socket = new Socket(); const live = await connectScribe(ticket, { webSocketFactory: () => socket }); socket.close();
   await expect((async () => { for await (const _event of live) {} })()).rejects.toThrow(/billing confirmation/);
+});
+it("polls a long upload until the result is ready", async () => {
+  vi.useFakeTimers();
+  const calls: string[] = [];
+  const addis = client(async (url, init) => {
+    calls.push(`${init?.method ?? "GET"} ${new URL(String(url)).pathname}`);
+    if (init?.method === "POST") return Response.json({ data: { request_id: "stable", status: "processing", poll_url: "/api/v1/scribe/requests/stable" } }, { status: 202 });
+    if (calls.length < 3) return Response.json({ error: { code: "IN_PROGRESS", message: "Transcription is still processing." } }, { status: 409 });
+    return Response.json({ data: { ...raw, idempotent_replay: true } });
+  });
+  const pending = addis.scribe.transcribe({ audio: new Uint8Array([1, 2]), requestId: "stable" });
+  await vi.advanceTimersByTimeAsync(11_000);
+  expect((await pending).text).toBe(raw.text);
+  expect(calls).toEqual(["POST /api/v1/scribe/transcribe", "GET /api/v1/scribe/requests/stable", "GET /api/v1/scribe/requests/stable"]);
+  vi.useRealTimers();
 });

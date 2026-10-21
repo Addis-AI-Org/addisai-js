@@ -66,6 +66,10 @@ language codes are rejected locally before any API request or socket connection.
 Use a matching language and voice ID. `voices.list` returns this three-language
 catalog so you can choose another available voice.
 
+Tigrinya ships seven native voices: `ti-berhane` (default), `ti-senait`, `ti-haben`,
+`ti-rahel`, `ti-filimon`, `ti-danait` and `ti-yonas`. Tigrinya is also accepted by
+chat (`language: "ti"`), speech-to-text and translation below.
+
 ## Voice (text‑to‑speech)
 
 ```ts
@@ -374,9 +378,12 @@ contains only the scoped one-use ticket. Socket URLs contain no credentials.
 Python uses equivalent snake_case names. `capabilities()` returns model limits and
 `usage()` returns your wallet balance and current rate.
 
-HTTP uploads accept 25 MiB / 180 seconds. File streams emit partials after upload;
-WebSockets accept audio incrementally. HTTP defaults to standard/1120ms chunks; sockets
-to standard/320ms. Tickets expire after 60 seconds. One request is admitted per wallet.
+HTTP uploads accept 95 MiB and up to one hour of audio (speaker labels included); a live session takes up to 15 minutes.
+`capabilities()` returns the current limits (`max_upload_bytes`, `max_upload_seconds`, `max_live_seconds`).
+A long upload may answer "still processing"; `transcribe` then polls until the result is ready.
+File streams emit partials after upload;
+WebSockets accept audio incrementally. Both default to the turbo backend: HTTP with 1120ms chunks,
+sockets with 320ms. Tickets expire after 60 seconds.
 Only final transcript UTF-16 character units are billed; partials have no separate
 charge. Paid requests/ticket creation are not automatically retried. Disconnecting
 or closing a stream can still bill accepted audio. Recover settled results for 24
@@ -397,8 +404,9 @@ const out = await addis.translate.create({ text: "Hello, how are you?", from: "e
 console.log(out.text);
 ```
 
-STT supports `am | om | ti | en | ha | sw` (max 25 MB / 120 s). Translation supports `am | om | ti | en`.
-Speech recognition uses `/api/v2/stt`; confidence may be `null`.
+STT supports `am | om | ti | en | ha | sw` (max 25 MB / 120 s). Translation supports `am | om | ti | en`,
+so Tigrinya translates to and from Amharic, Afaan Oromo and English.
+Speech recognition uses `/api/v2/stt`; confidence may be `null` (always for Tigrinya).
 
 ## Legacy audio (deprecated)
 

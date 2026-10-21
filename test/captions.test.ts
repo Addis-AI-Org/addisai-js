@@ -6,13 +6,13 @@ const segment: ScribeSegment = { text: "ሰላም ወዳጆቻችን እንዴ�
 function client(fetch: typeof globalThis.fetch) { return new AddisAI({ apiKey: "test-secret", fetch }); }
 
 describe("Scribe backend and timestamps options", () => {
-  it("defaults to the standard backend and omits timestamps unless set", async () => {
+  it("defaults to the turbo backend and omits timestamps unless set", async () => {
     const seen: URL[] = [];
     const addis = client(async url => { seen.push(new URL(String(url))); return Response.json({ data: raw }); });
     await addis.scribe.transcribe({ audio: new Uint8Array([1]), requestId: "a" });
     await addis.scribe.transcribe({ audio: new Uint8Array([1]), requestId: "b", backend: "turbo", timestamps: "word" });
     await addis.scribe.transcribe({ audio: new Uint8Array([1]), requestId: "c", timestamps: "none" });
-    expect(seen[0].searchParams.get("backend")).toBe("standard");
+    expect(seen[0].searchParams.get("backend")).toBe("turbo");   // default since 0.7.0
     expect(seen[0].searchParams.has("timestamps")).toBe(false);
     expect(seen[1].searchParams.get("backend")).toBe("turbo");
     expect(seen[1].searchParams.get("timestamps")).toBe("word");
@@ -82,10 +82,10 @@ describe("Scribe speaker labels", () => {
   });
   it("requires the turbo backend before HTTP", async () => {
     let calls = 0; const addis = client(async () => { calls++; return Response.json({ data: raw }); });
-    await expect(addis.scribe.transcribe({ audio: new Uint8Array([1]), speakers: true })).rejects.toThrow(/turbo/);
+    await addis.scribe.transcribe({ audio: new Uint8Array([1]), speakers: true });   // the default backend is turbo since 0.7.0
     await expect(addis.scribe.transcribe({ audio: new Uint8Array([1]), backend: "standard", speakers: true })).rejects.toThrow(/backend: "turbo"/);
     await expect(addis.scribe.transcribe({ audio: new Uint8Array([1]), backend: "turbo", speakers: "yes" as never })).rejects.toThrow(/speakers/);
-    expect(calls).toBe(0);
+    expect(calls).toBe(1);   // only the valid default call reached HTTP
   });
   it("rejects speakers on stream() locally", async () => {
     let calls = 0; const addis = client(async () => { calls++; return Response.json({ data: raw }); });
