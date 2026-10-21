@@ -367,6 +367,34 @@ Good to know:
   each other.
 - Labels are "Speaker 1", "Speaker 2" and so on, not names.
 
+### Long audio (up to three hours)
+
+Recordings longer than one upload allows go through a **job**: one request ID, one
+transcript, one speaker numbering, one bill. `transcribeLong` sends a file of at most
+95 MiB in one request and declares a larger one (a three-hour WAV, say) and sends it in
+4 MiB parts, then polls every 5 seconds (honouring `Retry-After`) for up to four hours
+and returns the settled result in the same shape as `transcribe` (`mode: "job"`, plus
+`chunks`, the number of pieces the file was cut into). Jobs run on the turbo backend
+and default to word timestamps.
+
+```ts
+const result = await addis.scribe.transcribeLong({
+  audio: await fileFromPath("meeting.m4a"), speakers: true,
+  onProgress: p => console.log(`${p.status}: ${p.processedSeconds ?? 0}/${p.audioSeconds ?? "?"} s`),
+});
+console.log(result.chunks, result.speakers, result.usage.creditsUsed);
+```
+
+Paid steps are never retried; a dropped part is resent, and a second `transcribeLong`
+with the same `requestId` resumes from the parts the server already has. If your
+process stops while the job runs, `recover(requestId)` (or `jobs.wait`) reads the result
+for 24 hours. A failed job (`402 INSUFFICIENT_CREDITS`, `422 INVALID_AUDIO`) throws its
+own error and charges nothing. At most two jobs per account run at once (`429 BUSY`).
+
+For manual control use `addis.scribe.jobs`: `upload(params)` (one request), `create({ requestId, bytes })`
+then `putPart(requestId, index, bytes)` and `complete(requestId)`, `status(requestId)` for progress and
+`wait(requestId, { onProgress, pollMs, timeoutMs })` for the settled result. `capabilities().jobs` carries the limits.
+
 ### Live audio
 
 `addis.scribe.connect({ requestId })` opens live audio. Read its async event iterator
@@ -380,7 +408,7 @@ Python uses equivalent snake_case names. `capabilities()` returns model limits a
 
 HTTP uploads accept 95 MiB and up to one hour of audio (speaker labels included); a live session takes up to 15 minutes.
 `capabilities()` returns the current limits (`max_upload_bytes`, `max_upload_seconds`, `max_live_seconds`).
-A long upload may answer "still processing"; `transcribe` then polls until the result is ready.
+A long upload may answer "still processing"; `transcribe` then polls until the result is ready. Anything longer than an hour goes through `transcribeLong`.
 File streams emit partials after upload;
 WebSockets accept audio incrementally. Both default to the turbo backend: HTTP with 1120ms chunks,
 sockets with 320ms. Tickets expire after 60 seconds.

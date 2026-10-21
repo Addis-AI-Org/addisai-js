@@ -1,5 +1,5 @@
 import { camelize } from "../core/camelize.js";
-import { AddisAIError, APIError, makeAPIError } from "../core/errors.js";
+import { AddisAIError, APIConnectionError, APIError, makeAPIError } from "../core/errors.js";
 import { ulid } from "../core/idempotency.js";
 import { type RequestOptions, type Transport, unwrapData } from "../core/request.js";
 import { toBlob, type Uploadable } from "../core/uploads.js";
@@ -10,6 +10,11 @@ const MAX_EVENT = 512 * 1024;
 const LIVE_SECONDS = 900;
 const POLL_MS = 5_000;
 const POLL_LIMIT_MS = 3_600_000;
+/** One-request upload limit (`/transcribe` and `jobs.upload`); larger files are declared and sent in parts. */
+const MAX_UPLOAD = 95 * 1024 * 1024;
+/** Longest a job is waited for by default: three hours of audio plus queueing. */
+const JOB_WAIT_MS = 4 * 3_600_000;
+const PART_ATTEMPTS = 3;
 /** Inference backend; both bill the same character rate. */
 export type ScribeBackend = "standard" | "turbo";
 export type ScribeChunk = "320ms" | "1120ms";
@@ -51,8 +56,10 @@ export interface ScribeUsage {
 }
 export interface ScribeTranscription {
   text: string; requestId: string; seconds: number; computeMs: number;
-  backend: ScribeBackend; chunk: ScribeChunk; mode: "offline" | "live" | "upload_stream";
+  backend: ScribeBackend; chunk: ScribeChunk; mode: "offline" | "live" | "upload_stream" | "job";
   model: string; usage: ScribeUsage; idempotentReplay?: boolean;
+  /** Number of pieces a long file was cut into; present for jobs (`mode: "job"`). */
+  chunks?: number;
   /** Word timings; present when transcribed with `timestamps: "word"`. */
   words?: ScribeWord[];
   /** Caption cues; present when transcribed with `timestamps: "word"`. Format with `toSrt`/`toVtt`. */
@@ -75,6 +82,62 @@ export interface ScribeCapabilities {
   chunks?: ScribeChunk[]; defaults?: { backend: ScribeBackend; httpChunk: ScribeChunk; websocketChunk: ScribeChunk };
   ticketTtlSeconds?: number; resultRetentionSeconds?: number;
   billing?: { unit: "character"; characterEncoding: "utf-16"; rateEndpoint: string; partialsBillable: false };
+  /** Long-audio jobs (`transcribeLong`, `jobs`); absent when jobs are off. */
+  jobs?: ScribeJobCapabilities;
+}
+export interface ScribeJobCapabilities {
+  backends: ScribeBackend[];
+  /** Largest declared upload (parts). */
+  maxBytes: number;
+  /** Longest decoded audio, in seconds. */
+  maxSeconds: number;
+  /** One-request size; above it, declare the job and send parts. */
+  maxUploadBytes: number;
+  partBytes: number; chunkSeconds: number; overlapSeconds: number;
+  timestamps: ScribeTimestamps[]; formats: string[];
+  defaults: { backend: ScribeBackend; chunk: ScribeChunk; timestamps: ScribeTimestamps; speakers: boolean };
+}
+export type ScribeJobState = "uploading" | "queued" | "processing" | "completed" | "failed";
+/** A job's state, from `jobs.status`, every `jobs` call that does not return the result, and `onProgress`. */
+export interface ScribeJobStatus {
+  requestId: string; status: ScribeJobState;
+  /** Upload state: part indexes stored so far, part count and part size (one part for a one-request job). */
+  received?: number[]; parts?: number; partBytes?: number;
+  /** Decoded length in seconds, once decoded; `null` before. */
+  audioSeconds?: number | null;
+  /** Audio transcribed so far, in seconds. */
+  processedSeconds?: number;
+  /** Pieces cut and finished, once the file is cut. */
+  chunks?: { total: number; done: number };
+  /** Where the result is read (`/requests/{id}`), once the upload is complete. */
+  pollUrl?: string; jobUrl?: string;
+  /** Why the job failed (nothing was charged); present when `status` is `"failed"`. */
+  error?: { code: string; message: string };
+  /** Unix time at which an unfinished upload is dropped. */
+  expiresAt?: number;
+}
+/** Receipt for one stored part. */
+export interface ScribeJobPart { index: number; received: number[] }
+/** `jobs.create`: declare a file to be sent in parts. */
+export interface ScribeJobParams extends ScribeParams {
+  /** Exact size of the file in bytes. */
+  bytes: number;
+  /** Defaults to `"word"` for jobs on the server; sent only when set. */
+  timestamps?: ScribeTimestamps;
+  /** Speaker labels over the whole file; sent only when true. */
+  speakers?: boolean;
+}
+export interface ScribeJobWaitOptions {
+  /** Called with each `queued`/`processing` answer while polling. */
+  onProgress?: (progress: ScribeJobStatus) => void;
+  /** Delay between polls when the server sends no `Retry-After`. Defaults to 5 seconds. */
+  pollMs?: number;
+  /** Give up waiting (the job keeps running; `recover` later). Defaults to four hours. */
+  timeoutMs?: number;
+}
+export interface ScribeTranscribeLongParams extends ScribeTranscribeParams {
+  /** Called with each `queued`/`processing` answer while the job runs. */
+  onProgress?: (progress: ScribeJobStatus) => void;
 }
 export type ScribeEvent =
   | { type: "session.created"; requestId: string; backend: ScribeBackend; chunk: ScribeChunk; sampleRate: number; format: "pcm_s16le"; maxAudioSeconds: number }
@@ -94,7 +157,7 @@ function timestampsQuery(value: ScribeTimestamps | undefined): { timestamps?: Sc
   if (value !== "none" && value !== "word") throw new AddisAIError('Scribe timestamps must be "none" or "word".');
   return { timestamps: value };
 }
-function speakersQuery(params: ScribeTranscribeParams): { speakers?: "true" } {
+function speakersQuery(params: Pick<ScribeTranscribeParams, "backend" | "speakers">): { speakers?: "true" } {
   const value = params.speakers;
   if (value === undefined || value === false) return {};
   if (value !== true) throw new AddisAIError("Scribe speakers must be true or false.");
@@ -121,7 +184,9 @@ function parseEvent(text: string): ScribeEvent {
 }
 
 export class Scribe {
-  constructor(private readonly transport: Transport) {}
+  /** Long audio as jobs: one request or parts, status and polling. `transcribeLong` does all of it in one call. */
+  readonly jobs: ScribeJobs;
+  constructor(private readonly transport: Transport) { this.jobs = new ScribeJobs(transport); }
   async capabilities(opts: RequestOptions = {}): Promise<ScribeCapabilities> {
     return camelize(unwrapData(await this.transport.request({ method: "GET", path: PATH }, opts)));
   }
@@ -143,16 +208,54 @@ export class Scribe {
   }
   /** A long upload answers 202 with `status: "processing"`; poll its request until it is done. */
   private async settled(data: any, opts: RequestOptions): Promise<unknown> {
-    if (data?.status !== "processing") return data;
+    if (!inProgress(data)) return data;
     const deadline = Date.now() + POLL_LIMIT_MS;
     while (true) {
-      await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+      await sleep(POLL_MS);
       try {
-        return unwrapData(await this.transport.request({ method: "GET", path: `${PATH}/requests/${data.request_id}` }, { ...opts, maxRetries: 0 }));
+        const latest = unwrapData<any>(await this.transport.request({ method: "GET", path: `${PATH}/requests/${data.request_id}` }, { ...opts, maxRetries: 0 }));
+        if (!inProgress(latest) || Date.now() > deadline) return latest;
       } catch (error) {
         if (!(error instanceof APIError) || error.code !== "IN_PROGRESS" || Date.now() > deadline) throw error;
       }
     }
+  }
+  /**
+   * Amharic recordings up to three hours: one job, one transcript, one speaker numbering, one bill. A file of at most
+   * 95 MiB goes up in one request; a larger one is declared and sent in parts (resuming the parts the server already
+   * has). Then the job is polled every 5 seconds (honouring `Retry-After`), `onProgress` is called with each answer, and
+   * the settled result is returned in the same shape as `transcribe`. Paid steps are never retried; a part is resent
+   * up to three times after a connection error. Interrupted callers recover with `recover(requestId)`.
+   */
+  async transcribeLong(params: ScribeTranscribeLongParams, opts: RequestOptions = {}): Promise<ScribeTranscription> {
+    const { onProgress, ...rest } = params;
+    const requestId = parameters(rest, "1120ms").request_id;
+    speakersQuery(rest); timestampsQuery(rest.timestamps);
+    const source = audioSource(rest.audio);
+    const settings = { ...rest, requestId };
+    if (source.size <= MAX_UPLOAD) {
+      await this.jobs.upload(settings, opts);
+    } else {
+      const job = await this.jobs.create({ ...settings, bytes: source.size }, opts);
+      if (job.status === "uploading") {
+        const partBytes = job.partBytes ?? 0; const parts = job.parts ?? 0;
+        if (!(partBytes > 0) || !(parts > 0)) throw new AddisAIError("Scribe job declaration is missing part_bytes or parts.");
+        const received = new Set(job.received ?? []);
+        for (let index = 0; index < parts; index++) {
+          if (received.has(index)) continue;
+          const bytes = await source.slice(index * partBytes, Math.min((index + 1) * partBytes, source.size));
+          for (let attempt = 1; ; attempt++) {
+            try { await this.jobs.putPart(requestId, index, bytes, opts); break; }
+            catch (error) {
+              if (!(error instanceof APIConnectionError) || attempt >= PART_ATTEMPTS) throw error;
+              await sleep(500 * 2 ** (attempt - 1));
+            }
+          }
+        }
+        await this.jobs.complete(requestId, opts);
+      }
+    }
+    return this.jobs.wait(requestId, { onProgress }, opts);
   }
   /** Upload a file and iterate provisional text, followed by settled completion. */
   async stream(params: ScribeTranscribeParams, opts: RequestOptions = {}): Promise<ScribeTranscriptStream> {
@@ -170,10 +273,77 @@ export class Scribe {
     return connectScribe(await this.createSession(params, opts), opts);
   }
 }
-function audioForm(input: Uploadable): FormData {
+function audioForm(input: Uploadable, tooLarge = "Scribe audio must contain 1 byte to 95 MiB."): FormData {
   const { blob, filename } = toBlob(input, "audio/wav");
-  if (!blob.size || blob.size > 95 * 1024 * 1024) throw new AddisAIError("Scribe audio must contain 1 byte to 95 MiB.");
+  if (!blob.size || blob.size > MAX_UPLOAD) throw new AddisAIError(tooLarge);
   const form = new FormData(); form.append("audio", blob, filename); return form;
+}
+function inProgress(data: any): boolean { return data?.status === "queued" || data?.status === "processing"; }
+function sleep(ms: number): Promise<void> { return new Promise(resolve => setTimeout(resolve, ms)); }
+/** The file's size and a way to read byte ranges of it: `Blob.slice` for Blobs, `subarray` for byte arrays. */
+function audioSource(input: Uploadable): { size: number; slice: (start: number, end: number) => Promise<Uint8Array> } {
+  const data = typeof input === "object" && input !== null && "data" in input && !(input instanceof Blob) ? input.data : input;
+  if (data instanceof Blob) return { size: data.size, slice: async (start, end) => new Uint8Array(await data.slice(start, end).arrayBuffer()) };
+  const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+  return { size: bytes.byteLength, slice: async (start, end) => bytes.subarray(start, end) };
+}
+
+/**
+ * Long audio (up to three hours) as jobs. Every paid call (`upload`, `create`, `putPart`, `complete`) is sent once;
+ * `status` and `wait` are free reads. Keep one `requestId` across every call of a job.
+ */
+export class ScribeJobs {
+  constructor(private readonly transport: Transport) {}
+  /** Create a job with the whole file in one request (at most 95 MiB); the job starts at once. */
+  async upload(params: ScribeTranscribeParams, opts: RequestOptions = {}): Promise<ScribeJobStatus> {
+    const query = { ...parameters(params, "1120ms"), ...timestampsQuery(params.timestamps), ...speakersQuery(params) };
+    const form = audioForm(params.audio, "Scribe jobs.upload takes 1 byte to 95 MiB in one request; declare a larger file with jobs.create and send parts.");
+    return camelize(unwrapData(await this.transport.request({ method: "POST", path: `${PATH}/jobs`, query, form, timeoutFloor: 600_000 }, { ...opts, maxRetries: 0 })));
+  }
+  /** Declare a file of `bytes` bytes to be sent with `putPart`; the answer carries `partBytes`, `parts` and the parts already `received`. */
+  async create(params: ScribeJobParams, opts: RequestOptions = {}): Promise<ScribeJobStatus> {
+    const { bytes } = params;
+    if (!Number.isInteger(bytes) || bytes < 1) throw new AddisAIError("Scribe jobs.create needs the file size in bytes (a positive integer).");
+    const speakers = speakersQuery(params).speakers ? { speakers: true } : {};
+    const body = { ...parameters(params, "1120ms"), bytes, ...timestampsQuery(params.timestamps), ...speakers };
+    return camelize(unwrapData(await this.transport.request({ method: "POST", path: `${PATH}/jobs`, body }, { ...opts, maxRetries: 0 })));
+  }
+  /** Send part `index`: bytes `[index × partBytes, …)` of the file; every part but the last is exactly `partBytes` long. */
+  async putPart(requestId: string, index: number, bytes: Uint8Array, opts: RequestOptions = {}): Promise<ScribeJobPart> {
+    parameters({ requestId }, "1120ms");
+    if (!Number.isInteger(index) || index < 0) throw new AddisAIError("Scribe part index must be a non-negative integer.");
+    if (!(bytes instanceof Uint8Array) || !bytes.byteLength) throw new AddisAIError("Scribe part bytes must be a non-empty Uint8Array.");
+    return camelize(unwrapData(await this.transport.request({ method: "PUT", path: `${PATH}/jobs/${requestId}/parts/${index}`, bytes, timeoutFloor: 600_000 }, { ...opts, maxRetries: 0 })));
+  }
+  /** Start the job once every part is there (`409 UPLOAD_INCOMPLETE` otherwise); returns its state, or the result when it is already done. */
+  async complete(requestId: string, opts: RequestOptions = {}): Promise<ScribeJobStatus | ScribeTranscription> {
+    parameters({ requestId }, "1120ms");
+    return camelize(unwrapData(await this.transport.request({ method: "POST", path: `${PATH}/jobs/${requestId}/complete` }, { ...opts, maxRetries: 0 })));
+  }
+  /** The job's state and progress. */
+  async status(requestId: string, opts: RequestOptions = {}): Promise<ScribeJobStatus> {
+    parameters({ requestId }, "1120ms");
+    return camelize(unwrapData(await this.transport.request({ method: "GET", path: `${PATH}/jobs/${requestId}` }, opts)));
+  }
+  /**
+   * Poll the job's result until it is settled. Each `queued`/`processing` answer goes to `onProgress`, then the SDK
+   * sleeps `Retry-After` seconds (or `pollMs`). A failed job throws its own API error; nothing was charged.
+   */
+  async wait(requestId: string, { onProgress, pollMs = POLL_MS, timeoutMs = JOB_WAIT_MS }: ScribeJobWaitOptions = {}, opts: RequestOptions = {}): Promise<ScribeTranscription> {
+    parameters({ requestId }, "1120ms");
+    const deadline = Date.now() + timeoutMs;
+    while (true) {
+      const response = await this.transport.request<Response>({ method: "GET", path: `${PATH}/requests/${requestId}`, raw: true }, { ...opts, maxRetries: 0 });
+      let body: unknown;
+      try { body = await response.json(); } catch { throw new AddisAIError("Invalid Scribe JSON response."); }
+      const data = unwrapData<any>(body);
+      if (response.status !== 202 && !inProgress(data)) return completion(data);
+      onProgress?.(camelize<ScribeJobStatus>(data));
+      if (Date.now() > deadline) throw new AddisAIError(`Scribe job ${requestId} is still running after ${Math.round(timeoutMs / 1000)} seconds. Recover the same requestId later.`);
+      const retryAfter = Number(response.headers.get("retry-after"));
+      await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : pollMs);
+    }
+  }
 }
 
 export class ScribeTranscriptStream implements AsyncIterable<ScribeEvent> {

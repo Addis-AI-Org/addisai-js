@@ -43,6 +43,8 @@ export interface InternalRequest {
   body?: unknown;
   /** multipart/form-data body (mutually exclusive with `body`). */
   form?: FormData;
+  /** Raw bytes sent as `application/octet-stream` (mutually exclusive with `body` and `form`). */
+  bytes?: Uint8Array;
   /** Return the raw Response (for streaming or binary) instead of parsed JSON. */
   raw?: boolean;
   /** Minimum effective timeout in ms (e.g. paid synthesis budget). */
@@ -99,7 +101,8 @@ export class Transport {
     for (const [k, v] of Object.entries(opts.headers ?? {})) headers.set(k, v);
 
     if (opts.idempotencyKey) headers.set("Idempotency-Key", opts.idempotencyKey);
-    if (req.body !== undefined && !req.form) headers.set("Content-Type", "application/json");
+    if (req.bytes) headers.set("Content-Type", "application/octet-stream");
+    else if (req.body !== undefined && !req.form) headers.set("Content-Type", "application/json");
     return headers;
   }
 
@@ -130,11 +133,7 @@ export class Transport {
 
     const url = this.buildURL(req.path, { ...req.query, ...opts.query });
     const headers = this.buildHeaders(req, opts);
-    const bodyInit: BodyInit | undefined = req.form
-      ? req.form
-      : req.body !== undefined
-        ? JSON.stringify(req.body)
-        : undefined;
+    const bodyInit = bodyOf(req);
 
     let lastError: unknown;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -209,11 +208,7 @@ export class Transport {
     const timeout = opts.timeout ?? this.config.timeout;
     const url = this.buildURL(req.path, { ...req.query, ...opts.query });
     const headers = this.buildHeaders(req, opts);
-    const bodyInit: BodyInit | undefined = req.form
-      ? req.form
-      : req.body !== undefined
-        ? JSON.stringify(req.body)
-        : undefined;
+    const bodyInit = bodyOf(req);
 
     const timer = setTimeout(() => controller.abort(new DOMExceptionLike("timeout")), timeout);
     let response: Response;
@@ -275,6 +270,12 @@ function isAbortError(err: unknown): boolean {
     err instanceof Error &&
     (err.name === "AbortError" || err.name === "timeout" || err.name === "TimeoutError")
   );
+}
+
+function bodyOf(req: InternalRequest): BodyInit | undefined {
+  if (req.bytes) return req.bytes as unknown as BodyInit;
+  if (req.form) return req.form;
+  return req.body !== undefined ? JSON.stringify(req.body) : undefined;
 }
 
 function sleep(ms: number): Promise<void> {

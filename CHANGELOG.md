@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.9.0
+
+- **Scribe long audio (up to three hours):** `scribe.transcribeLong({ audio, speakers, timestamps, requestId, onProgress })`
+  transcribes a recording as one job: one request when the file is at most 95 MiB, otherwise a declaration followed by
+  4 MiB parts (resuming from the parts the server already has; a part is resent up to three times after a connection
+  error), then polls `GET /requests/{id}` every 5 seconds (honouring `Retry-After`) for up to four hours, calling
+  `onProgress` with each `queued`/`processing` answer, and returns the settled result in the shape of `transcribe`
+  (`mode: "job"`, new optional `chunks`). Paid steps are never retried automatically.
+- `scribe.jobs` for manual control: `upload(params)`, `create({ requestId, bytes, ... })`, `putPart(requestId, index, bytes)`,
+  `complete(requestId)`, `status(requestId)` and `wait(requestId, { onProgress, pollMs, timeoutMs })`.
+- New types: `ScribeJobStatus`, `ScribeJobState`, `ScribeJobParams`, `ScribeJobPart`, `ScribeJobWaitOptions`,
+  `ScribeTranscribeLongParams`, `ScribeJobCapabilities` (`ScribeCapabilities.jobs`); the `ScribeJobs` class is exported.
+- `scribe.transcribe` keeps polling when the result endpoint itself answers 202 (`queued`/`processing`) instead of
+  returning that progress body as a result.
+- Transport: raw-byte request bodies (`application/octet-stream`) for part uploads.
+
 ## 0.8.1
 
 - Tigrinya (`ti`) is documented across every modality it supports: voice generation and real-time sessions (seven native voices, `ti-berhane` by default), chat including attachments and audio input, speech-to-text and translation. Types already accepted `ti`; the `TranscribeParams.language` and `TranslateParams.to` comments now say so.
