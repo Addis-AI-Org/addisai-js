@@ -66,6 +66,10 @@ language codes are rejected locally before any API request or socket connection.
 Use a matching language and voice ID. `voices.list` returns this three-language
 catalog so you can choose another available voice.
 
+Tigrinya ships seven native voices: `ti-berhane` (default), `ti-senait`, `ti-haben`,
+`ti-rahel`, `ti-filimon`, `ti-danait` and `ti-yonas`. Tigrinya is also accepted by
+chat (`language: "ti"`), speech-to-text and translation below.
+
 ## Voice (text‑to‑speech)
 
 ```ts
@@ -400,8 +404,9 @@ const out = await addis.translate.create({ text: "Hello, how are you?", from: "e
 console.log(out.text);
 ```
 
-STT supports `am | om | ti | en | ha | sw` (max 25 MB / 120 s). Translation supports `am | om | ti | en`.
-Speech recognition uses `/api/v2/stt`; confidence may be `null`.
+STT supports `am | om | ti | en | ha | sw` (max 25 MB / 120 s). Translation supports `am | om | ti | en`,
+so Tigrinya translates to and from Amharic, Afaan Oromo and English.
+Speech recognition uses `/api/v2/stt`; confidence may be `null` (always for Tigrinya).
 
 ## Legacy audio (deprecated)
 

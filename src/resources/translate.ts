@@ -3,7 +3,7 @@ import type { TranslateLanguage } from "./shared.js";
 
 export interface TranslateParams {
   text: string;
-  /** Target language: "am" | "om" | "en". */
+  /** Target language: "am" | "om" | "ti" | "en". */
   to: TranslateLanguage;
   /** Source language. Must differ from `to`. */
   from: TranslateLanguage;

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.1
+
+- Tigrinya (`ti`) is documented across every modality it supports: voice generation and real-time sessions (seven native voices, `ti-berhane` by default), chat including attachments and audio input, speech-to-text and translation. Types already accepted `ti`; the `TranscribeParams.language` and `TranslateParams.to` comments now say so.
+- Tests cover the Tigrinya wire format for chat (`target_language`), speech-to-text (`language_code`) and translation (`source_language`/`target_language`).
+- No behaviour change. Addis Scribe remains Amharic-only.
+
 ## 0.8.0
 
 - Scribe: longer audio. Uploads up to one hour and 95 MB (speaker labels included); live sessions up to 15 minutes (the limit comes from the server's `session.created`, no longer fixed at 180 seconds in the SDK).

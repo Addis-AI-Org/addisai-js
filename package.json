@@ -1,6 +1,6 @@
 {
   "name": "addisai",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Official Addis AI SDK for Node.js — voice (TTS), realtime voice streaming, chat, speech-to-text, and translation.",
   "keywords": [
     "addis",
