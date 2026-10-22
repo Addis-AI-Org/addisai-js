@@ -59,7 +59,7 @@ export interface ChatAttachment {
 }
 
 export interface ChatCompletionCreateParams {
-  /** Accepted for OpenAI compatibility. Addis selects the model internally. */
+  /** Accepted for compatibility with chat-completions clients and ignored: Addis AI selects the model. */
   model?: string;
   messages: ChatCompletionMessage[];
   /** Target language: am (Amharic), om (Afaan Oromo), or ti (Tigrinya). Default am. */
@@ -101,7 +101,11 @@ export interface ChatCompletion {
   usage?: ChatUsage;
   /** Present when audio input was transcribed. */
   transcription?: { raw?: string; clean?: string };
-  /** Uploaded attachment URIs to reuse in later turns. */
+  /**
+   * Files uploaded with this request, to reuse in later turns. `fileUri` is an
+   * opaque Addis file reference (`addis://files/<id>`): send it back unchanged
+   * as `fileData.fileUri` in `conversation_history`.
+   */
   uploaded_attachments?: { fileUri: string; mimeType: string }[];
 }
 
@@ -265,7 +269,7 @@ class Completions {
 }
 
 /**
- * Convert OpenAI-style messages into the backend's native chat request
+ * Convert chat-completions messages into the backend's native chat request
  * (`prompt` + `conversation_history` + folded `system`). The deployed backend
  * reads `prompt`/`conversation_history`, not a `messages` array.
  */
@@ -328,6 +332,7 @@ interface NativeChatData {
     total_token_count?: number;
   } | null;
   tool_calls?: ToolCall[];
+  /** `fileUri` is an opaque Addis file reference (`addis://files/<id>`). */
   uploaded_attachments?: { fileUri: string; mimeType: string }[];
   transcription_raw?: string;
   transcription_clean?: string;

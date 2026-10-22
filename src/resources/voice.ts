@@ -7,7 +7,7 @@ import { AddisClip, type ClipData } from "../lib/clip.js";
 import { AudioStream } from "../lib/audio-stream.js";
 import { assertVoiceLanguage, type Language, type OutputFormat } from "./shared.js";
 
-/** ElevenLabs-style voice controls, expressed on a 0–100 scale. */
+/** Voice controls, expressed on a 0–100 scale. */
 export interface VoiceSettings {
   speed?: number;
   stability?: number;

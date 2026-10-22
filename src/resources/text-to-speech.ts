@@ -5,8 +5,8 @@ import type { Voice, VoiceSettings } from "./voice.js";
 import type { Language, OutputFormat } from "./shared.js";
 
 /**
- * ElevenLabs-style alias over `voice.*`, for developers migrating from
- * ElevenLabs. `client.textToSpeech.convert(voiceId, { text, language })`.
+ * Familiar text-to-speech alias over `voice.*`, for developers migrating from
+ * other voice SDKs. `client.textToSpeech.convert(voiceId, { text, language })`.
  */
 export interface ConvertParams {
   text: string;
@@ -19,7 +19,7 @@ export interface ConvertParams {
 export class TextToSpeech {
   constructor(private readonly voice: Voice) {}
 
-  /** Synthesize speech for a voice. Mirrors ElevenLabs `textToSpeech.convert`. */
+  /** Synthesize speech for a voice: `textToSpeech.convert(voiceId, params)`. */
   convert(voiceId: string, params: ConvertParams, opts?: RequestOptions): Promise<AddisClip> {
     return this.voice.generate({ voiceId, ...params }, opts);
   }

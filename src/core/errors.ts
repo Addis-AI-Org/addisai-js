@@ -1,7 +1,7 @@
 // Unified error hierarchy. Normalizes the three backend error envelope shapes:
 //   1. Voice routes:   { error: { code, message, details } }   + semantic HTTP
 //   2. Native routes:  { status: "error", error: { code, message } }
-//   3. OpenAI route:   { error: { message, type, param, code } }
+//   3. Chat-completions route: { error: { message, type, param, code } }
 
 export interface ErrorDetail {
   field?: string;

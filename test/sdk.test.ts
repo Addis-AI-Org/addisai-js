@@ -62,7 +62,7 @@ describe("security guards", () => {
     expect(resolveBaseURL("http://localhost:54321")).toContain("localhost");
   });
 
-  it("defaults to the Cloudflare endpoint", () => {
+  it("defaults to the Addis AI API endpoint", () => {
     expect(resolveBaseURL(undefined)).toBe("https://api.addisassistant.com");
   });
 
@@ -238,7 +238,7 @@ describe("chat.completions.create", () => {
     );
 
     const res = await addis.chat.completions.create({
-      model: "gpt-4o", // accepted but ignored
+      model: "any-model", // accepted but ignored
       language: "am",
       system: "Be concise.",
       messages: [

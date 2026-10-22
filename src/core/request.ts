@@ -89,7 +89,7 @@ export class Transport {
     headers.set("Accept", "application/json");
     headers.set("User-Agent", `addisai-node/${VERSION} (${detectRuntime()})`);
     headers.set("X-Addis-Client", `addisai-node/${VERSION}`);
-    // Auth: API keys go in x-api-key. A Supabase JWT goes in Authorization.
+    // Auth: API keys go in x-api-key. A session JWT goes in Authorization.
     // Never send both — the voice function rejects a non-JWT bearer token.
     if (looksLikeJwt(this.config.apiKey)) {
       headers.set("Authorization", `Bearer ${this.config.apiKey}`);
@@ -284,7 +284,7 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Native success envelopes wrap the payload as `{ status, data }` or `{ data }`.
- * The OpenAI route returns the payload directly. This unwraps `.data` when
+ * The chat-completions route returns the payload directly. This unwraps `.data` when
  * present and otherwise returns the body as-is.
  */
 export function unwrapData<T>(body: unknown): T {

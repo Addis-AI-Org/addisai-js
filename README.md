@@ -2,7 +2,7 @@
 
 The official [Addis AI](https://addisassistant.com) SDK for Node.js — voice (text‑to‑speech), chat/LLM with system prompts, personas and function calling, speech‑to‑text, and translation, with examples for **Amharic (`am`)**, **Afaan Oromo (`om`)**, and **Tigrinya (`ti`)**.
 
-Designed to feel familiar if you've used the OpenAI, Anthropic, or ElevenLabs SDKs.
+Designed to feel familiar if you've used other popular AI SDKs.
 
 ```bash
 npm install addisai
@@ -169,7 +169,7 @@ ADDIS_VOICE_LANGUAGE=om ADDIS_VOICE_ID=om-bikila node examples/realtime.mjs "Nag
 ADDIS_VOICE_LANGUAGE=ti ADDIS_VOICE_ID=ti-berhane node examples/realtime.mjs "ሰላም፣ እንቋዕ ናብ ኣዲስ ኤኣይ ብደሓን መጻእኩም።"
 ```
 
-### Migrating from ElevenLabs
+### Migrating from another voice SDK
 
 ```ts
 const clip = await addis.textToSpeech.convert("am-hamen", { text: "ሰላም", language: "am" });
@@ -177,7 +177,7 @@ const clip = await addis.textToSpeech.convert("am-hamen", { text: "ሰላም", l
 
 ## Chat / LLM
 
-Drop‑in OpenAI‑compatible chat, plus Addis extensions for language, system prompts, personas, and function calling.
+Drop‑in chat completions (the familiar `chat.completions.create` shape), plus Addis extensions for language, system prompts, personas, and function calling.
 
 ```ts
 const res = await addis.chat.completions.create({
@@ -255,7 +255,7 @@ voiceCmd.transcription?.clean; // the transcript
 
 ### Streaming (beta)
 
-`stream: true` returns a `ChatStream` — an async‑iterable of OpenAI‑style chunks with accumulators and cancellation:
+`stream: true` returns a `ChatStream` — an async‑iterable of chat-completion chunks with accumulators and cancellation:
 
 ```ts
 const stream = await addis.chat.completions.create({ language: "am", messages, stream: true });

@@ -37,8 +37,8 @@ const BLOCKED_HOST_SUFFIXES = [".supabase.co", ".supabase.in"];
 /**
  * Validate and normalize the base URL.
  *
- * The SDK must only ever talk to the Cloudflare-wrapped API. Pointing it at a
- * raw Supabase Functions/Storage host is rejected, and plain http:// is refused
+ * The SDK must only ever talk to the Addis AI API. Pointing it at a raw
+ * backend host is rejected, and plain http:// is refused
  * except for localhost (local testing).
  */
 export function resolveBaseURL(baseURL: string | undefined): string {

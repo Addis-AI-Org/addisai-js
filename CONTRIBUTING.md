@@ -48,8 +48,8 @@ examples/            runnable .mjs examples
 These reflect the SDK's security and product guarantees — PRs that break them
 will not be merged:
 
-1. **Cloudflare-only transport.** Never address a raw `*.supabase.co` host. The
-   base URL guard in `core/env.ts` must stay intact.
+1. **Addis API-only transport.** Never address a raw backend host. The base
+   URL guard in `core/env.ts` must stay intact.
 2. **No internal leakage.** Do not surface provider hostnames/ports, checkpoint
    paths, infra node names, or the underlying model name in types, errors, docs,
    or runtime values. The only model id exposed is `addis-1-alef`. (See how

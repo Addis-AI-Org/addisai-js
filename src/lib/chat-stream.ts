@@ -5,7 +5,7 @@ import type { ChatCompletion, ChatCompletionChunk, ChatUsage } from "../resource
 export const ADDIS_CHAT_MODEL = "addis-1-alef";
 
 /**
- * An OpenAI-style streaming chat response. It is async-iterable (`for await`),
+ * A chat-completions-style streaming chat response. It is async-iterable (`for await`),
  * and provides convenience accumulators and cancellation.
  */
 export class ChatStream implements AsyncIterable<ChatCompletionChunk> {

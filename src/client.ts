@@ -21,7 +21,7 @@ import { Scribe } from "./resources/scribe.js";
 export interface ClientOptions {
   /** Addis AI API key. Defaults to `process.env.ADDIS_API_KEY`. */
   apiKey?: string;
-  /** Override the API base URL. Defaults to the Addis AI Cloudflare endpoint. */
+  /** Override the API base URL. Defaults to the Addis AI API (https://api.addisassistant.com). */
   baseURL?: string;
   /** Request timeout in milliseconds. Default 60000. */
   timeout?: number;
@@ -47,7 +47,7 @@ export class AddisAI {
   readonly scribe: Scribe;
   readonly translate: Translate;
   readonly realtime: Realtime;
-  /** ElevenLabs-style alias over `voice.*` for developers migrating. */
+  /** Familiar text-to-speech alias over `voice.*` for developers migrating from other SDKs. */
   readonly textToSpeech: TextToSpeech;
   /** @deprecated Legacy endpoints retained for backward compatibility. Use `voice`. */
   readonly legacy: Legacy;
