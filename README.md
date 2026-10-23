@@ -428,9 +428,23 @@ process stops while the job runs, `recover(requestId)` (or `jobs.wait`) reads th
 for 24 hours. A failed job (`402 INSUFFICIENT_CREDITS`, `422 INVALID_AUDIO`) throws its
 own error and charges nothing. At most two jobs per account run at once (`429 BUSY`).
 
+Aborting `opts.signal` before the upload is complete cancels the job, so it does not hold one
+of those two slots; an upload left idle for 30 minutes stops counting on its own. Once the job
+is queued, aborting only stops the waiting. To stop a job yourself (nothing is charged), call
+`jobs.cancel(requestId)`: an upload or queued job is removed and its request ID is free again;
+a processing one ends with `REQUEST_CANCELLED`.
+
+```ts
+const controller = new AbortController();
+const pending = addis.scribe.transcribeLong({ audio, requestId }, { signal: controller.signal });
+// controller.abort();               // during the upload: the job is cancelled too
+// await addis.scribe.jobs.cancel(requestId);   // any time before it finishes
+```
+
 For manual control use `addis.scribe.jobs`: `upload(params)` (one request), `create({ requestId, bytes })`
 then `putPart(requestId, index, bytes)` and `complete(requestId)`, `status(requestId)` for progress and
-`wait(requestId, { onProgress, pollMs, timeoutMs })` for the settled result. `capabilities().jobs` carries the limits.
+`wait(requestId, { onProgress, pollMs, timeoutMs })` for the settled result, `cancel(requestId)` to stop it.
+`capabilities().jobs` carries the limits.
 
 ### Live audio
 

@@ -118,6 +118,14 @@ export interface ScribeJobStatus {
 }
 /** Receipt for one stored part. */
 export interface ScribeJobPart { index: number; received: number[] }
+/** `jobs.cancel`: what the cancel did. Nothing is charged for a cancelled job. */
+export interface ScribeJobCancellation {
+  requestId: string; status: "cancelled";
+  /** The job's state when it was cancelled: an upload or a queued job is removed; a processing one is stopped. */
+  was: "uploading" | "queued" | "processing";
+  /** True when the request ID may be used again at once (a removed upload or queued job). */
+  requestIdReusable: boolean;
+}
 /** `jobs.create`: declare a file to be sent in parts. */
 export interface ScribeJobParams extends ScribeParams {
   /** Exact size of the file in bytes. */
@@ -226,6 +234,10 @@ export class Scribe {
    * has). Then the job is polled every 5 seconds (honouring `Retry-After`), `onProgress` is called with each answer, and
    * the settled result is returned in the same shape as `transcribe`. Paid steps are never retried; a part is resent
    * up to three times after a connection error. Interrupted callers recover with `recover(requestId)`.
+   *
+   * Aborting `opts.signal` before the upload is complete cancels the job (`jobs.cancel`), so an abandoned upload does
+   * not hold one of the account's long-file slots. Once the job is queued, aborting only stops the waiting: the job
+   * runs on and its result is read later with `recover(requestId)` (or call `jobs.cancel` yourself).
    */
   async transcribeLong(params: ScribeTranscribeLongParams, opts: RequestOptions = {}): Promise<ScribeTranscription> {
     const { onProgress, ...rest } = params;
@@ -233,6 +245,16 @@ export class Scribe {
     speakersQuery(rest); timestampsQuery(rest.timestamps);
     const source = audioSource(rest.audio);
     const settings = { ...rest, requestId };
+    try { await this.uploadLong(source, settings, opts); }
+    catch (error) {
+      // An aborted upload cancels its own job (best effort: it may not exist yet) and rethrows the abort.
+      if (opts.signal?.aborted) await this.jobs.cancel(requestId, { ...opts, signal: undefined, maxRetries: 0 }).catch(() => undefined);
+      throw error;
+    }
+    return this.jobs.wait(requestId, { onProgress }, opts);
+  }
+  private async uploadLong(source: ReturnType<typeof audioSource>, settings: ScribeTranscribeLongParams & { requestId: string }, opts: RequestOptions): Promise<void> {
+    const requestId = settings.requestId;
     if (source.size <= MAX_UPLOAD) {
       await this.jobs.upload(settings, opts);
     } else {
@@ -255,7 +277,6 @@ export class Scribe {
         await this.jobs.complete(requestId, opts);
       }
     }
-    return this.jobs.wait(requestId, { onProgress }, opts);
   }
   /** Upload a file and iterate provisional text, followed by settled completion. */
   async stream(params: ScribeTranscribeParams, opts: RequestOptions = {}): Promise<ScribeTranscriptStream> {
@@ -319,6 +340,15 @@ export class ScribeJobs {
   async complete(requestId: string, opts: RequestOptions = {}): Promise<ScribeJobStatus | ScribeTranscription> {
     parameters({ requestId }, "1120ms");
     return camelize(unwrapData(await this.transport.request({ method: "POST", path: `${PATH}/jobs/${requestId}/complete` }, { ...opts, maxRetries: 0 })));
+  }
+  /**
+   * Cancel a job; nothing is charged. An upload or a queued job is removed and its request ID is free again; a
+   * processing job is stopped and ends failed with `REQUEST_CANCELLED` (its request ID stays used). A finished job
+   * throws `409 JOB_FINISHED`; an unknown one `404 NOT_FOUND`.
+   */
+  async cancel(requestId: string, opts: RequestOptions = {}): Promise<ScribeJobCancellation> {
+    parameters({ requestId }, "1120ms");
+    return camelize(unwrapData(await this.transport.request({ method: "DELETE", path: `${PATH}/jobs/${requestId}` }, opts)));
   }
   /** The job's state and progress. */
   async status(requestId: string, opts: RequestOptions = {}): Promise<ScribeJobStatus> {

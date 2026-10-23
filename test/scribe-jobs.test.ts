@@ -131,3 +131,53 @@ it("throws the job's own error while polling and rejects unsettled or incomplete
   const endless = client(async () => Response.json({ data: processing }, { status: 202 }));
   await expect(endless.scribe.jobs.wait("stable", { pollMs: 1, timeoutMs: 10 })).rejects.toThrow(/still running/);
 });
+it("cancels a job with DELETE and maps the answer", async () => {
+  const seen: string[] = [];
+  const addis = client(async (url, init) => {
+    const u = new URL(String(url)); seen.push(`${init?.method} ${u.pathname}`);
+    if (u.pathname.endsWith("/gone")) return Response.json({ status: "error", error: { code: "JOB_FINISHED", message: "Finished." } }, { status: 409 });
+    return Response.json({ data: { request_id: "stable", status: "cancelled", was: "uploading", request_id_reusable: true } });
+  });
+  expect(await addis.scribe.jobs.cancel("stable")).toEqual({ requestId: "stable", status: "cancelled", was: "uploading", requestIdReusable: true });
+  await expect(addis.scribe.jobs.cancel("gone")).rejects.toMatchObject({ status: 409, code: "JOB_FINISHED" });
+  await expect(addis.scribe.jobs.cancel("bad/id")).rejects.toThrow(/requestId/);
+  expect(seen).toEqual(["DELETE /api/v1/scribe/jobs/stable", "DELETE /api/v1/scribe/jobs/gone"]);
+});
+it("an aborted upload cancels its own job and rethrows the abort", async () => {
+  const seen: string[] = []; const controller = new AbortController();
+  const addis = client(async (url, init) => {
+    const u = new URL(String(url)); seen.push(`${init?.method} ${u.pathname}`);
+    if (init?.method === "POST") return Response.json({ data: { request_id: "stable", status: "uploading", part_bytes: PART, parts: 3, received: [], expires_at: 1792000000, job_url: "/api/v1/scribe/jobs/stable" } }, { status: 201 });
+    if (init?.method === "PUT") {
+      if (u.pathname.endsWith("/1")) { controller.abort(); throw init.signal?.reason ?? new DOMException("aborted", "AbortError"); }   // the caller gives up mid-part
+      return Response.json({ data: { index: 0, received: [0] } });
+    }
+    expect(init?.signal?.aborted ?? false).toBe(false);   // the cancel itself is not aborted
+    return Response.json({ data: { request_id: "stable", status: "cancelled", was: "uploading", request_id_reusable: true } });
+  });
+  await expect(addis.scribe.transcribeLong({ audio: bigFile(), requestId: "stable" }, { signal: controller.signal })).rejects.toBeDefined();
+  expect(seen).toEqual(["POST /api/v1/scribe/jobs", "PUT /api/v1/scribe/jobs/stable/parts/0", "PUT /api/v1/scribe/jobs/stable/parts/1", "DELETE /api/v1/scribe/jobs/stable"]);
+});
+it("an aborted one-request upload cancels too, and a failed cancel does not hide the abort", async () => {
+  const seen: string[] = []; const controller = new AbortController(); controller.abort();
+  const addis = client(async (url, init) => {
+    const u = new URL(String(url)); seen.push(`${init?.method} ${u.pathname}`);
+    if (init?.method === "POST") throw init.signal?.reason;
+    return Response.json({ status: "error", error: { code: "NOT_FOUND", message: "Job not found." } }, { status: 404 });
+  });
+  const error = await addis.scribe.transcribeLong({ audio: new Uint8Array([1, 2]), requestId: "stable" }, { signal: controller.signal }).catch(e => e);
+  expect(error).not.toMatchObject({ code: "NOT_FOUND" });
+  expect(seen.at(-1)).toBe("DELETE /api/v1/scribe/jobs/stable");
+});
+it("other upload failures and an abort while waiting leave the job alone", async () => {
+  const seen: string[] = []; const controller = new AbortController();
+  const addis = client(async (url, init) => {
+    const u = new URL(String(url)); seen.push(`${init?.method} ${u.pathname}`);
+    if (init?.method === "POST" && u.pathname.endsWith("/jobs")) return Response.json({ data: queued }, { status: 202 });
+    controller.abort(); throw init?.signal?.reason;   // aborted while polling
+  });
+  await expect(addis.scribe.transcribeLong({ audio: new Uint8Array([1, 2]), requestId: "stable" }, { signal: controller.signal })).rejects.toBeDefined();
+  const refused = client(async (url, init) => { seen.push(`${init?.method} ${new URL(String(url)).pathname}`); return Response.json({ status: "error", error: { code: "BUSY", message: "Busy." } }, { status: 429 }); });
+  await expect(refused.scribe.transcribeLong({ audio: new Uint8Array([1, 2]), requestId: "stable" })).rejects.toMatchObject({ code: "BUSY" });
+  expect(seen.filter(c => c.startsWith("DELETE"))).toEqual([]);
+});
