@@ -175,6 +175,43 @@ ADDIS_VOICE_LANGUAGE=ti ADDIS_VOICE_ID=ti-berhane node examples/realtime.mjs "�
 const clip = await addis.textToSpeech.convert("am-hamen", { text: "ሰላም", language: "am" });
 ```
 
+## Batches (half price, within 24 hours)
+
+Send many text to speech requests at once. They run when demand is low, every
+batch finishes within 24 hours, and only finished requests are billed, at half
+the standard price.
+
+```ts
+const batch = await addis.batches.createFromRequests({
+  requests: chapters.map((text, index) => ({
+    customId: `chapter-${index + 1}`,
+    text,                  // Tigrinya text, e.g. "ሎሚ ጽቡቕ መዓልቲ እዩ።"
+    voiceId: "ti-berhane",
+    language: "ti",
+  })),
+  metadata: { project: "audiobook" },
+});
+
+const done = await addis.batches.waitFor(batch.id); // polls every 30 s
+for await (const result of addis.batches.results(done.id)) {
+  if (result.status === "succeeded") {
+    const audio = await addis.files.content(result.response!.audioFileId);
+    // save audio
+  } else {
+    console.warn(result.customId, result.error);
+  }
+}
+```
+
+Batches support the same languages and voices as `voice.generate`: Amharic
+(`am`), Afaan Oromo (`om`) and Tigrinya (`ti`, with any of its seven voices).
+Each request's `voiceId` must match its `language`; other languages are
+rejected locally before anything is uploaded.
+
+Already have a JSONL file (`{"custom_id": "...", "body": {...}}` per line)? Use
+`files.upload(file)` then `batches.create({ inputFileId })`. `batches.cancel(id)`
+stops queued requests; running ones finish and are billed.
+
 ## Chat / LLM
 
 Drop‑in chat completions (the familiar `chat.completions.create` shape), plus Addis extensions for language, system prompts, personas, and function calling.

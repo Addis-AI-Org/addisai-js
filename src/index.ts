@@ -90,6 +90,24 @@ export type { TranscribeParams, Transcription } from "./resources/speech.js";
 export type { TranslateParams, Translation } from "./resources/translate.js";
 export type { ConvertParams } from "./resources/text-to-speech.js";
 
+// Batches and files
+export { toBatchJsonl } from "./resources/batches.js";
+export type {
+  Batch,
+  BatchCreateFromRequestsParams,
+  BatchCreateParams,
+  BatchEndpoint,
+  BatchListParams,
+  BatchRequestRecord,
+  BatchRequestStatus,
+  BatchResult,
+  BatchSpeechRequest,
+  BatchSpeechResult,
+  BatchStatus,
+  BatchWaitOptions,
+} from "./resources/batches.js";
+export type { FileObject, FilePurpose, FileUploadParams, SignedUpload } from "./resources/files.js";
+
 // Legacy (deprecated)
 export { LegacyAudio } from "./resources/legacy.js";
 export type { LegacyAudioParams } from "./resources/legacy.js";
