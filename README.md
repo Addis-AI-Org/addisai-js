@@ -175,11 +175,12 @@ ADDIS_VOICE_LANGUAGE=ti ADDIS_VOICE_ID=ti-berhane node examples/realtime.mjs "�
 const clip = await addis.textToSpeech.convert("am-hamen", { text: "ሰላም", language: "am" });
 ```
 
-## Batches (half price, within 24 hours)
+## Batches (2.5 ETB a minute, within 24 hours)
 
 Send many text to speech requests at once. They run when demand is low, every
-batch finishes within 24 hours, and only finished requests are billed, at half
-the standard price.
+batch finishes within 24 hours, and only finished requests are billed, at 2.5
+ETB per generated minute, half the Voices 2 list price. Any account with at
+least one paid top-up can create batches; signup credit alone does not count.
 
 ```ts
 const batch = await addis.batches.createFromRequests({
