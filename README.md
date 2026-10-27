@@ -320,8 +320,8 @@ Streaming is beta and not available with tools; non‑streaming is recommended f
 
 ## Addis Scribe
 
-Scribe transcribes **Amharic**. Choose `backend: "standard"` (default) or
-`backend: "turbo"`; both bill the same character rate.
+Scribe transcribes **Amharic** (`am`, the default) and **Afaan Oromo** (`om`). Choose
+`backend: "turbo"` (default) or `backend: "standard"`; both bill the same character rate.
 Save a request ID before sending audio; recover it after an interrupted response.
 
 ```ts
@@ -341,6 +341,22 @@ for await (const event of stream) {
   if (event.type === "transcript.completed") console.log(event.data.usage);
 }
 ```
+
+### Afaan Oromo
+
+Pass `language: "om"` to any Scribe call: `transcribe`, `stream`, `transcribeLong`, `jobs.upload` / `jobs.create`
+and live `connect` / `createSession`. Oromo runs on the turbo backend (the default) and supports word timestamps,
+captions, speaker labels and long files at the same rate. Without `language` a request is Amharic, exactly as before.
+
+```ts
+const oromo = await addis.scribe.transcribe({
+  audio: await fileFromPath("oromo.wav"), language: "om", requestId: ulid(),
+});
+console.log(oromo.language, oromo.model); // om addis-scribe-oromo-streaming
+const live = await addis.scribe.connect({ language: "om", requestId: ulid() }); // live Oromo session
+```
+
+`capabilities()` returns `languages` with each language's model, backends and speaker support.
 
 ### Word timestamps and captions
 
