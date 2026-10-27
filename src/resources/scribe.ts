@@ -113,7 +113,12 @@ export interface ScribeJobStatus {
   pollUrl?: string; jobUrl?: string;
   /** Why the job failed (nothing was charged); present when `status` is `"failed"`. */
   error?: { code: string; message: string };
-  /** Unix time at which an unfinished upload is dropped. */
+  /**
+   * Unix time at which an unfinished upload expires: 30 minutes after its last new part (or the declaration), moved
+   * forward each time a new part is stored, and never more than 24 hours after the declaration. Status reads, a new
+   * declaration and a resent part do not move it. Once it passes, the job is gone (`404 NOT_FOUND`), it no longer
+   * counts toward the account's two long files, and its request ID is free again.
+   */
   expiresAt?: number;
 }
 /** Receipt for one stored part. */
@@ -321,7 +326,10 @@ export class ScribeJobs {
     const form = audioForm(params.audio, "Scribe jobs.upload takes 1 byte to 95 MiB in one request; declare a larger file with jobs.create and send parts.");
     return camelize(unwrapData(await this.transport.request({ method: "POST", path: `${PATH}/jobs`, query, form, timeoutFloor: 600_000 }, { ...opts, maxRetries: 0 })));
   }
-  /** Declare a file of `bytes` bytes to be sent with `putPart`; the answer carries `partBytes`, `parts` and the parts already `received`. */
+  /**
+   * Declare a file of `bytes` bytes to be sent with `putPart`; the answer carries `partBytes`, `parts`, the parts already
+   * `received` and `expiresAt`. An upload with no new part for 30 minutes expires; declare it again to start over.
+   */
   async create(params: ScribeJobParams, opts: RequestOptions = {}): Promise<ScribeJobStatus> {
     const { bytes } = params;
     if (!Number.isInteger(bytes) || bytes < 1) throw new AddisAIError("Scribe jobs.create needs the file size in bytes (a positive integer).");
@@ -329,7 +337,10 @@ export class ScribeJobs {
     const body = { ...parameters(params, "1120ms"), bytes, ...timestampsQuery(params.timestamps), ...speakers };
     return camelize(unwrapData(await this.transport.request({ method: "POST", path: `${PATH}/jobs`, body }, { ...opts, maxRetries: 0 })));
   }
-  /** Send part `index`: bytes `[index × partBytes, …)` of the file; every part but the last is exactly `partBytes` long. */
+  /**
+   * Send part `index`: bytes `[index × partBytes, …)` of the file; every part but the last is exactly `partBytes` long.
+   * After `complete`, or for a job made with `upload`, the job takes no more parts: `409 UPLOAD_CLOSED`.
+   */
   async putPart(requestId: string, index: number, bytes: Uint8Array, opts: RequestOptions = {}): Promise<ScribeJobPart> {
     parameters({ requestId }, "1120ms");
     if (!Number.isInteger(index) || index < 0) throw new AddisAIError("Scribe part index must be a non-negative integer.");
