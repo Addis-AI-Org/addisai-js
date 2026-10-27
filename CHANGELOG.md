@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.11.0
+
+- **Scribe transcribes Afaan Oromo:** pass `language: "om"` to `scribe.transcribe`, `scribe.stream`,
+  `scribe.createSession` / `scribe.connect` (live), `scribe.transcribeLong` and `scribe.jobs.upload` / `jobs.create`.
+  Uploads and jobs send it as the `language` query parameter; live sessions send it in the session's JSON body.
+  Oromo results carry `language: "om"` and `model: "addis-scribe-oromo-streaming"`. Oromo runs on the turbo backend
+  only (the API answers `422` for `backend: "standard"`); word timestamps, captions, speaker labels and long files work
+  as for Amharic, at the same per-character rate.
+- `language` is optional and sent only when set: Amharic requests are exactly as before. An unknown code is passed to
+  the API, which answers `422 UNSUPPORTED_LANGUAGE`.
+- New types `ScribeLanguage` (`"am" | "om"`) and `ScribeLanguageCapabilities`; `ScribeCapabilities.languages` types the
+  API's new per-language object (model, backends, speaker support), and `ScribeTranscription`/`ScribeSession` gain an
+  optional `language`.
+
 ## 0.10.1
 
 - Scribe job docs: `expiresAt` is 30 minutes after an unfinished upload's last new part, moves forward with each new

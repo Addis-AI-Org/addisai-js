@@ -20,6 +20,11 @@ export type ScribeBackend = "standard" | "turbo";
 export type ScribeChunk = "320ms" | "1120ms";
 /** Timestamp detail for completed uploads; `"word"` adds `words` and `segments`. */
 export type ScribeTimestamps = "none" | "word";
+/**
+ * Spoken language: `"am"` (Amharic, the default) or `"om"` (Afaan Oromo, turbo backend only; the API answers `422` for
+ * `backend: "standard"`). Another code is passed to the API, which answers `422 UNSUPPORTED_LANGUAGE`.
+ */
+export type ScribeLanguage = "am" | "om";
 /** One recognized word, in seconds from the start of the file. */
 export interface ScribeWord {
   text: string; start: number; end: number;
@@ -39,6 +44,11 @@ export interface ScribeParams {
   chunk?: ScribeChunk;
   /** Stable ID used for recovery and idempotency. Defaults to a new ULID. */
   requestId?: string;
+  /**
+   * `"am"` (Amharic) or `"om"` (Afaan Oromo, turbo only). Sent only when set: the `language` query parameter for uploads,
+   * streams and jobs, a `language` field in the JSON body for live sessions. Omitted means Amharic, as before.
+   */
+  language?: ScribeLanguage;
 }
 export interface ScribeTranscribeParams extends ScribeParams {
   audio: Uploadable;
@@ -57,7 +67,10 @@ export interface ScribeUsage {
 export interface ScribeTranscription {
   text: string; requestId: string; seconds: number; computeMs: number;
   backend: ScribeBackend; chunk: ScribeChunk; mode: "offline" | "live" | "upload_stream" | "job";
+  /** `"addis-scribe-streaming"` for Amharic, `"addis-scribe-oromo-streaming"` for Afaan Oromo. */
   model: string; usage: ScribeUsage; idempotentReplay?: boolean;
+  /** The transcribed language; Afaan Oromo results carry `"om"`. */
+  language?: ScribeLanguage;
   /** Number of pieces a long file was cut into; present for jobs (`mode: "job"`). */
   chunks?: number;
   /** Word timings; present when transcribed with `timestamps: "word"`. */
@@ -70,6 +83,7 @@ export interface ScribeTranscription {
 export interface ScribeSession {
   token: string; expiresAt: number; websocketUrl: string; maxAudioSeconds: number;
   requestId: string; backend: ScribeBackend; chunk: ScribeChunk;
+  language?: ScribeLanguage;
 }
 export interface ScribeAccountUsage {
   balance: number; currency: "ETB";
@@ -84,7 +98,10 @@ export interface ScribeCapabilities {
   billing?: { unit: "character"; characterEncoding: "utf-16"; rateEndpoint: string; partialsBillable: false };
   /** Long-audio jobs (`transcribeLong`, `jobs`); absent when jobs are off. */
   jobs?: ScribeJobCapabilities;
+  /** Every supported language: its model, backends and speaker-label support (e.g. `om` is turbo only). */
+  languages?: Record<string, ScribeLanguageCapabilities>;
 }
+export interface ScribeLanguageCapabilities { model: string; backends: ScribeBackend[]; speakers: boolean }
 export interface ScribeJobCapabilities {
   backends: ScribeBackend[];
   /** Largest declared upload (parts). */
@@ -170,6 +187,12 @@ function timestampsQuery(value: ScribeTimestamps | undefined): { timestamps?: Sc
   if (value !== "none" && value !== "word") throw new AddisAIError('Scribe timestamps must be "none" or "word".');
   return { timestamps: value };
 }
+/** `language` reaches the wire only when the caller sets it; omitted means Amharic and the request is unchanged. */
+function languageParam(value: unknown): { language?: string } {
+  if (value === undefined) return {};
+  if (typeof value !== "string" || !value) throw new AddisAIError('Scribe language must be "am" (Amharic) or "om" (Afaan Oromo).');
+  return { language: value };
+}
 function speakersQuery(params: Pick<ScribeTranscribeParams, "backend" | "speakers">): { speakers?: "true" } {
   const value = params.speakers;
   if (value === undefined || value === false) return {};
@@ -211,11 +234,11 @@ export class Scribe {
     return completion(unwrapData(await this.transport.request({ method: "GET", path: `${PATH}/requests/${requestId}` }, { ...opts, maxRetries: 0 })));
   }
   /**
-   * Amharic file transcription; retries are disabled. Pass `timestamps: "word"` for words and caption segments,
-   * or `speakers: true` with `backend: "turbo"` for speaker-labelled words and segments.
+   * Amharic or Afaan Oromo (`language: "om"`) file transcription; retries are disabled. Pass `timestamps: "word"` for
+   * words and caption segments, or `speakers: true` with `backend: "turbo"` for speaker-labelled words and segments.
    */
   async transcribe(params: ScribeTranscribeParams, opts: RequestOptions = {}): Promise<ScribeTranscription> {
-    const query = { ...parameters(params, "1120ms"), ...timestampsQuery(params.timestamps), ...speakersQuery(params) };
+    const query = { ...parameters(params, "1120ms"), ...timestampsQuery(params.timestamps), ...speakersQuery(params), ...languageParam(params.language) };
     const data = unwrapData(await this.transport.request({ method: "POST", path: `${PATH}/transcribe`, query: { ...query, stream: false }, form: audioForm(params.audio), timeoutFloor: 600_000 }, { ...opts, maxRetries: 0 }));
     return completion(await this.settled(data, opts));
   }
@@ -234,7 +257,7 @@ export class Scribe {
     }
   }
   /**
-   * Amharic recordings up to three hours: one job, one transcript, one speaker numbering, one bill. A file of at most
+   * Amharic or Afaan Oromo (`language: "om"`) recordings up to three hours: one job, one transcript, one speaker numbering, one bill. A file of at most
    * 95 MiB goes up in one request; a larger one is declared and sent in parts (resuming the parts the server already
    * has). Then the job is polled every 5 seconds (honouring `Retry-After`), `onProgress` is called with each answer, and
    * the settled result is returned in the same shape as `transcribe`. Paid steps are never retried; a part is resent
@@ -247,7 +270,7 @@ export class Scribe {
   async transcribeLong(params: ScribeTranscribeLongParams, opts: RequestOptions = {}): Promise<ScribeTranscription> {
     const { onProgress, ...rest } = params;
     const requestId = parameters(rest, "1120ms").request_id;
-    speakersQuery(rest); timestampsQuery(rest.timestamps);
+    speakersQuery(rest); timestampsQuery(rest.timestamps); languageParam(rest.language);
     const source = audioSource(rest.audio);
     const settings = { ...rest, requestId };
     try { await this.uploadLong(source, settings, opts); }
@@ -283,18 +306,20 @@ export class Scribe {
       }
     }
   }
-  /** Upload a file and iterate provisional text, followed by settled completion. */
+  /** Upload a file and iterate provisional text, followed by settled completion. `language: "om"` for Afaan Oromo. */
   async stream(params: ScribeTranscribeParams, opts: RequestOptions = {}): Promise<ScribeTranscriptStream> {
     if (params.speakers === true) throw new AddisAIError('Scribe speaker labels are available only for completed uploads; use transcribe() with backend: "turbo" and speakers: true instead of stream().');
     if (timestampsQuery(params.timestamps).timestamps === "word") throw new AddisAIError('Scribe timestamps are available only for completed uploads; use transcribe() with timestamps: "word" instead of stream().');
     const query = parameters(params, "1120ms");
-    const { response, controller } = await this.transport.openStream({ method: "POST", path: `${PATH}/transcribe`, query: { ...query, stream: true }, form: audioForm(params.audio) }, { timeout: 600_000, ...opts });
+    const { response, controller } = await this.transport.openStream({ method: "POST", path: `${PATH}/transcribe`, query: { ...query, ...languageParam(params.language), stream: true }, form: audioForm(params.audio) }, { timeout: 600_000, ...opts });
     return new ScribeTranscriptStream(response, controller, query.request_id);
   }
-  /** Create a one-use ticket on your server; return only the ticket to a browser. */
+  /** Create a one-use ticket on your server; return only the ticket to a browser. `language: "om"` for Afaan Oromo (JSON body). */
   async createSession(params: ScribeParams = {}, opts: RequestOptions = {}): Promise<ScribeSession> {
-    return camelize(unwrapData(await this.transport.request({ method: "POST", path: `${PATH}/sessions`, body: parameters(params, "320ms") }, { ...opts, maxRetries: 0 })));
+    const body = { ...parameters(params, "320ms"), ...languageParam(params.language) };
+    return camelize(unwrapData(await this.transport.request({ method: "POST", path: `${PATH}/sessions`, body }, { ...opts, maxRetries: 0 })));
   }
+  /** Create a ticket (see `createSession`, including `language`) and open its socket. */
   async connect(params: ScribeParams = {}, opts: RequestOptions & ScribeConnectOptions = {}): Promise<ScribeConnection> {
     return connectScribe(await this.createSession(params, opts), opts);
   }
@@ -320,22 +345,24 @@ function audioSource(input: Uploadable): { size: number; slice: (start: number, 
  */
 export class ScribeJobs {
   constructor(private readonly transport: Transport) {}
-  /** Create a job with the whole file in one request (at most 95 MiB); the job starts at once. */
+  /** Create a job with the whole file in one request (at most 95 MiB); the job starts at once. `language: "om"` for Afaan Oromo. */
   async upload(params: ScribeTranscribeParams, opts: RequestOptions = {}): Promise<ScribeJobStatus> {
-    const query = { ...parameters(params, "1120ms"), ...timestampsQuery(params.timestamps), ...speakersQuery(params) };
+    const query = { ...parameters(params, "1120ms"), ...timestampsQuery(params.timestamps), ...speakersQuery(params), ...languageParam(params.language) };
     const form = audioForm(params.audio, "Scribe jobs.upload takes 1 byte to 95 MiB in one request; declare a larger file with jobs.create and send parts.");
     return camelize(unwrapData(await this.transport.request({ method: "POST", path: `${PATH}/jobs`, query, form, timeoutFloor: 600_000 }, { ...opts, maxRetries: 0 })));
   }
   /**
    * Declare a file of `bytes` bytes to be sent with `putPart`; the answer carries `partBytes`, `parts`, the parts already
    * `received` and `expiresAt`. An upload with no new part for 30 minutes expires; declare it again to start over.
+   * `language` is sent as the `language` query parameter (only when set); the JSON body is unchanged.
    */
   async create(params: ScribeJobParams, opts: RequestOptions = {}): Promise<ScribeJobStatus> {
     const { bytes } = params;
     if (!Number.isInteger(bytes) || bytes < 1) throw new AddisAIError("Scribe jobs.create needs the file size in bytes (a positive integer).");
     const speakers = speakersQuery(params).speakers ? { speakers: true } : {};
     const body = { ...parameters(params, "1120ms"), bytes, ...timestampsQuery(params.timestamps), ...speakers };
-    return camelize(unwrapData(await this.transport.request({ method: "POST", path: `${PATH}/jobs`, body }, { ...opts, maxRetries: 0 })));
+    const query = languageParam(params.language);
+    return camelize(unwrapData(await this.transport.request({ method: "POST", path: `${PATH}/jobs`, body, ...(query.language ? { query } : {}) }, { ...opts, maxRetries: 0 })));
   }
   /**
    * Send part `index`: bytes `[index × partBytes, …)` of the file; every part but the last is exactly `partBytes` long.
