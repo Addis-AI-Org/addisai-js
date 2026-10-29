@@ -321,7 +321,7 @@ Streaming is beta and not available with tools; non‑streaming is recommended f
 
 ## Addis Scribe
 
-Scribe transcribes **Amharic** (`am`, the default) and **Afaan Oromo** (`om`). Choose
+Scribe transcribes **Amharic** (`am`, the default), **Afaan Oromo** (`om`) and **Tigrinya** (`ti`). Choose
 `backend: "turbo"` (default) or `backend: "standard"`; both bill the same character rate.
 Save a request ID before sending audio; recover it after an interrupted response.
 
@@ -358,6 +358,20 @@ const live = await addis.scribe.connect({ language: "om", requestId: ulid() }); 
 ```
 
 `capabilities()` returns `languages` with each language's model, backends and speaker support.
+
+### Tigrinya
+
+Pass `language: "ti"` to any Scribe call: `transcribe`, `stream`, `transcribeLong`, `jobs.upload` / `jobs.create`
+and live `connect` / `createSession`. Tigrinya runs on the turbo backend (the default) and supports word timestamps,
+captions, speaker labels and long files at the same rate as Amharic.
+
+```ts
+const tigrinya = await addis.scribe.transcribe({
+  audio: await fileFromPath("tigrinya.wav"), language: "ti", requestId: ulid(),
+});
+console.log(tigrinya.language, tigrinya.model); // ti addis-scribe-tigrinya-streaming
+const live = await addis.scribe.connect({ language: "ti", requestId: ulid() }); // live Tigrinya session
+```
 
 ### Word timestamps and captions
 

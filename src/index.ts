@@ -112,7 +112,7 @@ export type { FileObject, FilePurpose, FileUploadParams, SignedUpload } from "./
 export { LegacyAudio } from "./resources/legacy.js";
 export type { LegacyAudioParams } from "./resources/legacy.js";
 
-// Addis Scribe (Amharic and Afaan Oromo file and live transcription)
+// Addis Scribe (Amharic, Afaan Oromo and Tigrinya file and live transcription)
 export { connectScribe, ScribeConnection, ScribeJobs, ScribeTranscriptStream } from "./resources/scribe.js";
 export { toSrt, toVtt } from "./lib/captions.js";
 export type { ScribeLanguage, ScribeLanguageCapabilities, ScribeParams, ScribeTranscribeParams, ScribeTranscribeLongParams, ScribeTranscription, ScribeUsage, ScribeAccountUsage, ScribeCapabilities, ScribeJobCapabilities, ScribeJobParams, ScribeJobPart, ScribeJobCancellation, ScribeJobState, ScribeJobStatus, ScribeJobWaitOptions, ScribeBackend, ScribeChunk, ScribeTimestamps, ScribeWord, ScribeSegment, ScribeSession, ScribeEvent, ScribeConnectOptions, ScribeSocket } from "./resources/scribe.js";

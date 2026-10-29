@@ -82,8 +82,8 @@ it("a job declaration sends language as a query parameter, with an unchanged JSO
   expect(seen.map(s => JSON.parse(String(s.body)))).toEqual([body, body]);
 });
 it("passes server refusals through and rejects non-string languages locally", async () => {
-  const { addis, seen } = recording(() => Response.json({ error: { code: "UNSUPPORTED_LANGUAGE", message: "Use language=am|om." } }, { status: 422 }));
-  await expect(addis.scribe.transcribe({ audio, requestId: "om1", language: "ti" as ScribeLanguage })).rejects.toMatchObject({ status: 422, code: "UNSUPPORTED_LANGUAGE" });
+  const { addis, seen } = recording(() => Response.json({ error: { code: "UNSUPPORTED_LANGUAGE", message: "Use language=am|om|ti." } }, { status: 422 }));
+  await expect(addis.scribe.transcribe({ audio, requestId: "om1", language: "xx" as ScribeLanguage })).rejects.toMatchObject({ status: 422, code: "UNSUPPORTED_LANGUAGE" });
   expect(seen).toHaveLength(1);
   for (const bad of ["", 1, true] as unknown as ScribeLanguage[]) {
     await expect(addis.scribe.transcribe({ audio, language: bad })).rejects.toThrow(/language/);
