@@ -21,11 +21,12 @@ export type ScribeChunk = "320ms" | "1120ms";
 /** Timestamp detail for completed uploads; `"word"` adds `words` and `segments`. */
 export type ScribeTimestamps = "none" | "word";
 /**
- * Spoken language: `"am"` (Amharic, the default), `"om"` (Afaan Oromo) or `"ti"` (Tigrinya). Afaan Oromo and Tigrinya
- * run on the turbo backend only; the API answers `422` for `backend: "standard"`. Another code is passed to the API,
- * which answers `422 UNSUPPORTED_LANGUAGE`.
+ * Spoken language: `"am"` (Amharic, the default), `"om"` (Afaan Oromo), `"ti"` (Tigrinya), `"ha"` (Hausa), `"sid"`
+ * (Sidama), `"wal"` (Wolaytta) or `"sw"` (Swahili). Every language but Amharic runs on the turbo backend only; the API
+ * answers `422` for `backend: "standard"`. Swahili has no speaker labels (`languages.sw.speakers` is `false` in
+ * `capabilities()`). Another code is passed to the API, which answers `422 UNSUPPORTED_LANGUAGE`.
  */
-export type ScribeLanguage = "am" | "om" | "ti";
+export type ScribeLanguage = "am" | "om" | "ti" | "ha" | "sid" | "wal" | "sw";
 /** One recognized word, in seconds from the start of the file. */
 export interface ScribeWord {
   text: string; start: number; end: number;
@@ -46,7 +47,8 @@ export interface ScribeParams {
   /** Stable ID used for recovery and idempotency. Defaults to a new ULID. */
   requestId?: string;
   /**
-   * `"am"` (Amharic), `"om"` (Afaan Oromo, turbo only) or `"ti"` (Tigrinya, turbo only). Sent only when set: the
+   * A `ScribeLanguage`: `"am"` (Amharic), `"om"` (Afaan Oromo), `"ti"` (Tigrinya), `"ha"` (Hausa), `"sid"` (Sidama),
+   * `"wal"` (Wolaytta) or `"sw"` (Swahili); all but Amharic are turbo only. Sent only when set: the
    * `language` query parameter for uploads, streams and jobs, a `language` field in the JSON body for live sessions.
    * Omitted means Amharic, as before.
    */
@@ -71,10 +73,12 @@ export interface ScribeTranscription {
   backend: ScribeBackend; chunk: ScribeChunk; mode: "offline" | "live" | "upload_stream" | "job";
   /**
    * `"addis-scribe-streaming"` for Amharic, `"addis-scribe-oromo-streaming"` for Afaan Oromo,
-   * `"addis-scribe-tigrinya-streaming"` for Tigrinya.
+   * `"addis-scribe-tigrinya-streaming"` for Tigrinya, `"addis-scribe-hausa-streaming"` for Hausa,
+   * `"addis-scribe-sidama-streaming"` for Sidama, `"addis-scribe-wolaytta-streaming"` for Wolaytta and
+   * `"addis-scribe-swahili-streaming"` for Swahili.
    */
   model: string; usage: ScribeUsage; idempotentReplay?: boolean;
-  /** The transcribed language; Afaan Oromo results carry `"om"`, Tigrinya results `"ti"`. */
+  /** The transcribed language: Afaan Oromo results carry `"om"`, Tigrinya `"ti"`, Hausa `"ha"`, Sidama `"sid"`, Wolaytta `"wal"`, Swahili `"sw"`. */
   language?: ScribeLanguage;
   /** Number of pieces a long file was cut into; present for jobs (`mode: "job"`). */
   chunks?: number;
@@ -103,7 +107,7 @@ export interface ScribeCapabilities {
   billing?: { unit: "character"; characterEncoding: "utf-16"; rateEndpoint: string; partialsBillable: false };
   /** Long-audio jobs (`transcribeLong`, `jobs`); absent when jobs are off. */
   jobs?: ScribeJobCapabilities;
-  /** Every supported language: its model, backends and speaker-label support (e.g. `om` and `ti` are turbo only). */
+  /** Every supported language: its model, backends and speaker-label support (e.g. `om` is turbo only; `sw` has no speakers). */
   languages?: Record<string, ScribeLanguageCapabilities>;
 }
 export interface ScribeLanguageCapabilities { model: string; backends: ScribeBackend[]; speakers: boolean }
@@ -195,7 +199,7 @@ function timestampsQuery(value: ScribeTimestamps | undefined): { timestamps?: Sc
 /** `language` reaches the wire only when the caller sets it; omitted means Amharic and the request is unchanged. */
 function languageParam(value: unknown): { language?: string } {
   if (value === undefined) return {};
-  if (typeof value !== "string" || !value) throw new AddisAIError('Scribe language must be "am" (Amharic), "om" (Afaan Oromo) or "ti" (Tigrinya).');
+  if (typeof value !== "string" || !value) throw new AddisAIError('Scribe language must be "am" (Amharic), "om" (Afaan Oromo), "ti" (Tigrinya), "ha" (Hausa), "sid" (Sidama), "wal" (Wolaytta) or "sw" (Swahili).');
   return { language: value };
 }
 function speakersQuery(params: Pick<ScribeTranscribeParams, "backend" | "speakers">): { speakers?: "true" } {
@@ -239,7 +243,7 @@ export class Scribe {
     return completion(unwrapData(await this.transport.request({ method: "GET", path: `${PATH}/requests/${requestId}` }, { ...opts, maxRetries: 0 })));
   }
   /**
-   * Amharic, Afaan Oromo (`language: "om"`) or Tigrinya (`language: "ti"`) file transcription; retries are disabled. Pass `timestamps: "word"` for
+   * File transcription in any Scribe language (Amharic unless `language` says otherwise); retries are disabled. Pass `timestamps: "word"` for
    * words and caption segments, or `speakers: true` with `backend: "turbo"` for speaker-labelled words and segments.
    */
   async transcribe(params: ScribeTranscribeParams, opts: RequestOptions = {}): Promise<ScribeTranscription> {
@@ -262,7 +266,7 @@ export class Scribe {
     }
   }
   /**
-   * Amharic, Afaan Oromo (`language: "om"`) or Tigrinya (`language: "ti"`) recordings up to three hours: one job, one transcript, one speaker numbering, one bill. A file of at most
+   * Recordings up to three hours in any Scribe language (Amharic unless `language` says otherwise): one job, one transcript, one speaker numbering, one bill. A file of at most
    * 95 MiB goes up in one request; a larger one is declared and sent in parts (resuming the parts the server already
    * has). Then the job is polled every 5 seconds (honouring `Retry-After`), `onProgress` is called with each answer, and
    * the settled result is returned in the same shape as `transcribe`. Paid steps are never retried; a part is resent
@@ -311,7 +315,7 @@ export class Scribe {
       }
     }
   }
-  /** Upload a file and iterate provisional text, followed by settled completion. `language: "om"` for Afaan Oromo, `"ti"` for Tigrinya. */
+  /** Upload a file and iterate provisional text, followed by settled completion. Set `language` (e.g. `"om"`, `"ha"`) for languages other than Amharic. */
   async stream(params: ScribeTranscribeParams, opts: RequestOptions = {}): Promise<ScribeTranscriptStream> {
     if (params.speakers === true) throw new AddisAIError('Scribe speaker labels are available only for completed uploads; use transcribe() with backend: "turbo" and speakers: true instead of stream().');
     if (timestampsQuery(params.timestamps).timestamps === "word") throw new AddisAIError('Scribe timestamps are available only for completed uploads; use transcribe() with timestamps: "word" instead of stream().');
@@ -319,7 +323,7 @@ export class Scribe {
     const { response, controller } = await this.transport.openStream({ method: "POST", path: `${PATH}/transcribe`, query: { ...query, ...languageParam(params.language), stream: true }, form: audioForm(params.audio) }, { timeout: 600_000, ...opts });
     return new ScribeTranscriptStream(response, controller, query.request_id);
   }
-  /** Create a one-use ticket on your server; return only the ticket to a browser. `language: "om"` for Afaan Oromo, `"ti"` for Tigrinya (JSON body). */
+  /** Create a one-use ticket on your server; return only the ticket to a browser. Set `language` (e.g. `"om"`, `"ha"`) for languages other than Amharic (JSON body). */
   async createSession(params: ScribeParams = {}, opts: RequestOptions = {}): Promise<ScribeSession> {
     const body = { ...parameters(params, "320ms"), ...languageParam(params.language) };
     return camelize(unwrapData(await this.transport.request({ method: "POST", path: `${PATH}/sessions`, body }, { ...opts, maxRetries: 0 })));
@@ -350,7 +354,7 @@ function audioSource(input: Uploadable): { size: number; slice: (start: number, 
  */
 export class ScribeJobs {
   constructor(private readonly transport: Transport) {}
-  /** Create a job with the whole file in one request (at most 95 MiB); the job starts at once. `language: "om"` for Afaan Oromo, `"ti"` for Tigrinya. */
+  /** Create a job with the whole file in one request (at most 95 MiB); the job starts at once. Set `language` (e.g. `"om"`, `"ha"`) for languages other than Amharic. */
   async upload(params: ScribeTranscribeParams, opts: RequestOptions = {}): Promise<ScribeJobStatus> {
     const query = { ...parameters(params, "1120ms"), ...timestampsQuery(params.timestamps), ...speakersQuery(params), ...languageParam(params.language) };
     const form = audioForm(params.audio, "Scribe jobs.upload takes 1 byte to 95 MiB in one request; declare a larger file with jobs.create and send parts.");

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.13.0
+
+- **Scribe transcribes Hausa, Sidama, Wolaytta and Swahili:** pass `language: "ha"`, `"sid"`, `"wal"` or `"sw"` to
+  `scribe.transcribe`, `scribe.stream`, `scribe.createSession` / `scribe.connect` (live), `scribe.transcribeLong` and
+  `scribe.jobs.upload` / `jobs.create`, exactly as for Afaan Oromo and Tigrinya. Results carry the language code and
+  the model: `addis-scribe-hausa-streaming`, `addis-scribe-sidama-streaming`, `addis-scribe-wolaytta-streaming` or
+  `addis-scribe-swahili-streaming`. All four run on the turbo backend only (the API answers `422` for
+  `backend: "standard"`); word timestamps, captions and long files work as for Amharic, at the same per-character rate.
+  Speaker labels work in Hausa, Sidama and Wolaytta; Swahili has none (`languages.sw.speakers` is `false`).
+- `ScribeLanguage` is now `"am" | "om" | "ti" | "ha" | "sid" | "wal" | "sw"`. Without `language`, requests are Amharic,
+  exactly as before.
+
 ## 0.12.0
 
 - **Scribe transcribes Tigrinya:** pass `language: "ti"` to `scribe.transcribe`, `scribe.stream`,

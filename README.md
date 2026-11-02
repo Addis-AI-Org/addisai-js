@@ -321,7 +321,8 @@ Streaming is beta and not available with tools; non‑streaming is recommended f
 
 ## Addis Scribe
 
-Scribe transcribes **Amharic** (`am`, the default), **Afaan Oromo** (`om`) and **Tigrinya** (`ti`). Choose
+Scribe transcribes **Amharic** (`am`, the default), **Afaan Oromo** (`om`), **Tigrinya** (`ti`), **Hausa** (`ha`),
+**Sidama** (`sid`), **Wolaytta** (`wal`) and **Swahili** (`sw`). Choose
 `backend: "turbo"` (default) or `backend: "standard"`; both bill the same character rate.
 Save a request ID before sending audio; recover it after an interrupted response.
 
@@ -371,6 +372,29 @@ const tigrinya = await addis.scribe.transcribe({
 });
 console.log(tigrinya.language, tigrinya.model); // ti addis-scribe-tigrinya-streaming
 const live = await addis.scribe.connect({ language: "ti", requestId: ulid() }); // live Tigrinya session
+```
+
+### Hausa, Sidama, Wolaytta and Swahili
+
+Pass `language: "ha"` (Hausa), `"sid"` (Sidama), `"wal"` (Wolaytta) or `"sw"` (Swahili) to any Scribe call:
+`transcribe`, `stream`, `transcribeLong`, `jobs.upload` / `jobs.create` and live `connect` / `createSession`. All four
+run on the turbo backend (the default) and support word timestamps, captions and long files at the same rate as
+Amharic. Speaker labels work in Hausa, Sidama and Wolaytta, not in Swahili. Hausa, Sidama and Wolaytta text is
+lowercase without punctuation; Swahili text has capitals, punctuation and numbers as digits.
+
+| Language | `language` | `model` in results |
+| --- | --- | --- |
+| Hausa | `ha` | `addis-scribe-hausa-streaming` |
+| Sidama | `sid` | `addis-scribe-sidama-streaming` |
+| Wolaytta | `wal` | `addis-scribe-wolaytta-streaming` |
+| Swahili | `sw` | `addis-scribe-swahili-streaming` |
+
+```ts
+const hausa = await addis.scribe.transcribe({
+  audio: await fileFromPath("hausa.wav"), language: "ha", requestId: ulid(),
+});
+console.log(hausa.language, hausa.model); // ha addis-scribe-hausa-streaming
+const live = await addis.scribe.connect({ language: "sw", requestId: ulid() }); // live Swahili session
 ```
 
 ### Word timestamps and captions
