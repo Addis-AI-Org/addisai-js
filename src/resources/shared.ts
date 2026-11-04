@@ -4,9 +4,9 @@ import { AddisAIError } from "../core/errors.js";
 export type Language = "am" | "om" | "ti" | "sw" | "ha" | "sid" | "wal";
 export const VOICE_LANGUAGES: readonly Language[] = ["am", "om", "ti", "sw", "ha", "sid", "wal"];
 
-/** Languages supported for streamed speech (`voice.stream`) and real-time sessions (`realtime`). */
-export type RealtimeLanguage = "am" | "om" | "ti" | "sw";
-export const REALTIME_LANGUAGES: readonly RealtimeLanguage[] = ["am", "om", "ti", "sw"];
+/** Languages supported for streamed speech (`voice.stream`) and real-time sessions (`realtime`): since 0.14.0 the same seven as `Language`. */
+export type RealtimeLanguage = Language;
+export const REALTIME_LANGUAGES: readonly RealtimeLanguage[] = ["am", "om", "ti", "sw", "ha", "sid", "wal"];
 
 /** Languages supported by the deprecated legacy audio endpoint (`legacy.audio`). */
 export type LegacyLanguage = "am" | "om" | "ti";
@@ -52,7 +52,7 @@ export function assertVoiceLanguage(value: unknown): asserts value is Language {
 
 export function assertRealtimeLanguage(value: unknown): asserts value is RealtimeLanguage {
   if (!(REALTIME_LANGUAGES as readonly unknown[]).includes(value)) {
-    throw new AddisAIError(`Streamed and real-time voice language must be ${choices(REALTIME_LANGUAGES)}. Use voice.generate for other languages.`);
+    throw new AddisAIError(`Streamed and real-time voice language must be ${choices(REALTIME_LANGUAGES)}.`);
   }
 }
 

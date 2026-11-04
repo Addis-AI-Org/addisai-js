@@ -62,13 +62,13 @@ The API key is read from the `apiKey` option or the `ADDIS_API_KEY` environment 
 | Afaan Oromo | `om` | `om-bikila`, `om-ayyaantuu`, `om-leensaa`, `om-hawi`, `om-diriba`, `om-leta`, `om-ebba`, `om-chala`, `om-obse` | yes | yes, with speakers |
 | Tigrinya | `ti` | `ti-berhane`, `ti-senait`, `ti-haben`, `ti-rahel`, `ti-filimon`, `ti-danait`, `ti-yonas` | yes | yes, with speakers |
 | Swahili | `sw` | `sw-rashid`, `sw-neema`, `sw-hassan`, `sw-bakari`, `sw-amina`, `sw-juma`, `sw-zainab` | yes | yes, no speakers |
-| Hausa | `ha` | `ha-mustapha`, `ha-sani`, `ha-usman`, `ha-musa` | not yet: use `voice.generate` | yes, with speakers |
-| Sidama | `sid` | `sid-tigist`, `sid-desta`, `sid-bereket`, `sid-selam`, `sid-alemu` | not yet: use `voice.generate` | yes, with speakers |
-| Wolaytta | `wal` | `wal-tona`, `wal-almaz`, `wal-amado`, `wal-gobe`, `wal-hiwot` | not yet: use `voice.generate` | yes, with speakers |
+| Hausa | `ha` | `ha-mustapha`, `ha-sani`, `ha-usman`, `ha-musa` | yes | yes, with speakers |
+| Sidama | `sid` | `sid-tigist`, `sid-desta`, `sid-bereket`, `sid-selam`, `sid-alemu` | yes | yes, with speakers |
+| Wolaytta | `wal` | `wal-tona`, `wal-almaz`, `wal-amado`, `wal-gobe`, `wal-hiwot` | yes | yes, with speakers |
 <!-- languages:end -->
 
-`voice.generate`, `voice.estimate`, `textToSpeech.convert`, batches and `voices.list` take all seven languages.
-`voice.stream`, `textToSpeech.stream` and `realtime` take `am`, `om`, `ti` and `sw`. A voice ID is
+`voice.generate`, `voice.estimate`, `textToSpeech.convert`, batches, `voices.list`, `voice.stream`,
+`textToSpeech.stream` and `realtime` take all seven languages. A voice ID is
 `<language>-<name>` and must match the request's `language` (`sid-tigist` with `language: "sid"`); anything else is
 rejected locally before any request or socket. `VOICES` and `DEFAULT_VOICES` mirror the public catalog for offline
 checks; `voices.list` is the source of truth and also returns each voice's name and preview.
@@ -176,7 +176,7 @@ a cumulative text budget. The socket lasts up to 10 minutes with one utterance
 at a time. Use `append()` plus `commit()` to buffer generated text for one turn.
 Cancellation mutes delivery; an already-started synthesis completes and is billed.
 
-Streaming and real time take `am`, `om`, `ti` and `sw`; use any matching voice and language pair from the Languages table.
+Use any matching voice and language pair from the Languages table.
 HTTP streams support MP3 only. For early
 WAV pieces, choose a `wav_mp3` socket session and consume `audio.delta` events
 with `decodeRealtimeAudio(event)`, playing according to `event.format`.
@@ -190,6 +190,9 @@ ADDIS_VOICE_LANGUAGE=am ADDIS_VOICE_ID=am-hamen node examples/realtime.mjs "ሰ�
 ADDIS_VOICE_LANGUAGE=om ADDIS_VOICE_ID=om-bikila node examples/realtime.mjs "Nagaa, gara Addis AI baga nagaan dhuftan."
 ADDIS_VOICE_LANGUAGE=ti ADDIS_VOICE_ID=ti-berhane node examples/realtime.mjs "ሰላም፣ እንቋዕ ናብ ኣዲስ ኤኣይ ብደሓን መጻእኩም።"
 ADDIS_VOICE_LANGUAGE=sw ADDIS_VOICE_ID=sw-rashid node examples/realtime.mjs "Habari, karibu sana. Leo ni siku nzuri ya kujifunza kitu kipya pamoja."
+ADDIS_VOICE_LANGUAGE=ha ADDIS_VOICE_ID=ha-mustapha node examples/realtime.mjs "Barka da zuwa. Yau rana ce mai kyau don koyon sabon abu tare."
+ADDIS_VOICE_LANGUAGE=sid ADDIS_VOICE_ID=sid-tigist node examples/realtime.mjs "Kunino babbaxxinno sidaamu budu tima, adonna shaanu babbaxxinno sidaamu budi sagale leeltawo yaate."
+ADDIS_VOICE_LANGUAGE=wal ADDIS_VOICE_ID=wal-tona node examples/realtime.mjs "Giyaa giddon daro asay shammes, baassi koshshiyabaa bayzzes."
 ```
 
 ### Migrating from another voice SDK

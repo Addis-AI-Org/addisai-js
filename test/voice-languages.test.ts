@@ -6,13 +6,12 @@ import AddisAI, {
 
 const unsupported = ["en", "fr", "unknown", "", null];
 const allVoices = Object.entries(VOICES).flatMap(([language, ids]) => ids.map((voiceId) => ({ language: language as Language, voiceId })));
-const notRealtime = VOICE_LANGUAGES.filter((code) => !(REALTIME_LANGUAGES as readonly string[]).includes(code));
 const clipResponse = (language: string, voiceId: string) => Response.json({ data: { id: "clip", language, voice_id: voiceId } });
 
 describe("voice language scope", () => {
   it("exports the seven voice languages, the four streaming languages and the catalog mirror", () => {
     expect(VOICE_LANGUAGES).toEqual(["am", "om", "ti", "sw", "ha", "sid", "wal"]);
-    expect(REALTIME_LANGUAGES).toEqual(["am", "om", "ti", "sw"]);
+    expect(REALTIME_LANGUAGES).toEqual(VOICE_LANGUAGES);
     expect(DEFAULT_VOICES).toEqual({ am: "am-hamen", om: "om-bikila", ti: "ti-berhane", sw: "sw-rashid",
       ha: "ha-mustapha", sid: "sid-tigist", wal: "wal-tona" });
     expect(VOICES.ha).toEqual(["ha-mustapha", "ha-sani", "ha-usman", "ha-musa"]);
@@ -90,18 +89,6 @@ describe("voice language scope", () => {
     await addis.realtime.createSession({ language, voiceId });
     expect(calls.map((call) => call.path)).toEqual(["/api/v1/voice/generations/stream", "/api/v1/realtime/sessions"]);
     for (const call of calls) expect([call.body.language, call.body.voice_id]).toEqual([language, voiceId]);
-  });
-
-  it.each(notRealtime)("explains that %s streams are not offered and points to voice.generate", async (language) => {
-    const fetch = vi.fn();
-    const webSocketFactory = vi.fn();
-    const addis = new AddisAI({ apiKey: "secret", fetch });
-    const params = { language: language as RealtimeLanguage, voiceId: DEFAULT_VOICES[language], text: "A complete sentence." };
-    await expect(addis.voice.stream(params)).rejects.toThrow(/Use voice.generate/);
-    await expect(addis.realtime.createSession(params)).rejects.toThrow(/Use voice.generate/);
-    await expect(connectRealtime({ language } as unknown as RealtimeSession, { webSocketFactory })).rejects.toThrow(/Use voice.generate/);
-    expect(fetch).not.toHaveBeenCalled();
-    expect(webSocketFactory).not.toHaveBeenCalled();
   });
 
   it.each([["sid", "wal-tona"], ["ti", "am-hamen"], ["sw", "Rashid"], ["wal", ""], ["ha", "ha_musa"], ["sid", undefined]])(
