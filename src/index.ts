@@ -44,8 +44,12 @@ export { connectRealtime, decodeRealtimeAudio, RealtimeConnection } from "./reso
 export type { RealtimeSession, RealtimeSessionParams, RealtimeEvent, RealtimeInput, RealtimeConnectOptions, RealtimeSocket } from "./resources/realtime.js";
 
 // Shared
+export { VOICE_LANGUAGES, REALTIME_LANGUAGES, VOICES, DEFAULT_VOICES } from "./resources/shared.js";
+export { SCRIBE_LANGUAGES } from "./resources/scribe.js";
 export type {
   Language,
+  RealtimeLanguage,
+  LegacyLanguage,
   ChatLanguage,
   OutputFormat,
   SttLanguage,
@@ -74,6 +78,7 @@ export type {
   VoiceEstimate,
   VoiceEstimateParams,
   VoiceGenerateParams,
+  VoiceStreamParams,
   VoiceSettings,
   VoiceUsage,
 } from "./resources/voice.js";
@@ -112,7 +117,7 @@ export type { FileObject, FilePurpose, FileUploadParams, SignedUpload } from "./
 export { LegacyAudio } from "./resources/legacy.js";
 export type { LegacyAudioParams } from "./resources/legacy.js";
 
-// Addis Scribe (Amharic, Afaan Oromo and Tigrinya file and live transcription)
+// Addis Scribe (Amharic, Afaan Oromo, Tigrinya, Hausa, Sidama, Wolaytta and Swahili file and live transcription)
 export { connectScribe, ScribeConnection, ScribeJobs, ScribeTranscriptStream } from "./resources/scribe.js";
 export { toSrt, toVtt } from "./lib/captions.js";
 export type { ScribeLanguage, ScribeLanguageCapabilities, ScribeParams, ScribeTranscribeParams, ScribeTranscribeLongParams, ScribeTranscription, ScribeUsage, ScribeAccountUsage, ScribeCapabilities, ScribeJobCapabilities, ScribeJobParams, ScribeJobPart, ScribeJobCancellation, ScribeJobState, ScribeJobStatus, ScribeJobWaitOptions, ScribeBackend, ScribeChunk, ScribeTimestamps, ScribeWord, ScribeSegment, ScribeSession, ScribeEvent, ScribeConnectOptions, ScribeSocket } from "./resources/scribe.js";

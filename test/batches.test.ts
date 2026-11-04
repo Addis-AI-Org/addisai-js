@@ -97,8 +97,8 @@ describe("batches", () => {
     );
     await addis.batches.createFromRequests({
       requests: [
-        { customId: "a", text: "ሰላም", voiceId: "selam-warm", language: "am" },
-        { customId: "b", text: "Akkam", voiceId: "ayana", language: "om", outputFormat: "wav_44100", voiceSettings: { speed: 60 } },
+        { customId: "a", text: "ሰላም", voiceId: "am-hamen", language: "am" },
+        { customId: "b", text: "Akkam", voiceId: "om-bikila", language: "om", outputFormat: "wav_44100", voiceSettings: { speed: 60 } },
       ],
     });
 
@@ -108,8 +108,8 @@ describe("batches", () => {
     expect(file.name).toBe("batch.jsonl");
     const lines = (await file.text()).trim().split("\n").map((line) => JSON.parse(line));
     expect(lines).toEqual([
-      { custom_id: "a", body: { text: "ሰላም", voice_id: "selam-warm", language: "am", output_format: "mp3_44100" } },
-      { custom_id: "b", body: { text: "Akkam", voice_id: "ayana", language: "om", output_format: "wav_44100", voice_settings: { speed: 60 } } },
+      { custom_id: "a", body: { text: "ሰላም", voice_id: "am-hamen", language: "am", output_format: "mp3_44100" } },
+      { custom_id: "b", body: { text: "Akkam", voice_id: "om-bikila", language: "om", output_format: "wav_44100", voice_settings: { speed: 60 } } },
     ]);
     expect(JSON.parse(String(calls[1]!.init.body)).input_file_id).toBe(FILE_ID);
   });
@@ -129,7 +129,7 @@ describe("batches", () => {
     expect(lines[0].body.text).toBe("ሎሚ ጽቡቕ መዓልቲ እዩ።");
   });
 
-  it.each(["sid", "wal", "ha", "sw", "en", "fr", "", "unknown"])(
+  it.each(["en", "fr", "", "unknown"])(
     "rejects batch language %s locally before any upload",
     async (language) => {
       const { addis, calls } = clientWith(() => json({}));
@@ -138,7 +138,7 @@ describe("batches", () => {
           // Deliberately bypass TypeScript, as plain JavaScript callers can do.
           requests: [{ customId: "a", text: "x", voiceId: "v", language: language as "am" }],
         }),
-      ).rejects.toThrow(/am \(Amharic\), om \(Afaan Oromo\), or ti \(Tigrinya\)/);
+      ).rejects.toThrow(/Voice language must be am \(Amharic\).*wal \(Wolaytta\)/);
       expect(calls).toHaveLength(0);
     },
   );
@@ -146,8 +146,8 @@ describe("batches", () => {
   it("rejects duplicate custom ids and empty batches before any request", async () => {
     expect(() =>
       toBatchJsonl([
-        { customId: "a", text: "x", voiceId: "v", language: "am" },
-        { customId: "a", text: "y", voiceId: "v", language: "am" },
+        { customId: "a", text: "x", voiceId: "am-hamen", language: "am" },
+        { customId: "a", text: "y", voiceId: "am-hamen", language: "am" },
       ]),
     ).toThrow(/used twice/);
     const { addis, calls } = clientWith(() => json({}));

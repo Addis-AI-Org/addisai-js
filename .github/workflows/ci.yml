@@ -22,3 +22,17 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       - run: npm test
+
+  drift:
+    # Public endpoints only (no key, no cost): fails when the live API's languages differ from the SDK's.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run test/live-drift.test.ts
+        env:
+          ADDIS_DRIFT: "1"

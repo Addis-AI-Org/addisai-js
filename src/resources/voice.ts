@@ -5,7 +5,7 @@ import { CursorPage, CursorPagePromise, type Page } from "../core/pagination.js"
 import { type RequestOptions, type Transport, unwrapData } from "../core/request.js";
 import { AddisClip, type ClipData } from "../lib/clip.js";
 import { AudioStream } from "../lib/audio-stream.js";
-import { assertVoiceLanguage, type Language, type OutputFormat } from "./shared.js";
+import { assertRealtimeLanguage, assertVoiceId, assertVoiceLanguage, type Language, type OutputFormat, type RealtimeLanguage } from "./shared.js";
 
 /** Voice controls, expressed on a 0–100 scale. */
 export interface VoiceSettings {
@@ -29,6 +29,9 @@ export interface VoiceGenerateParams {
    */
   clientRequestId?: string;
 }
+
+/** `voice.stream` parameters: streaming covers am, om, ti and sw. */
+export type VoiceStreamParams = Omit<VoiceGenerateParams, "language"> & { language: RealtimeLanguage };
 
 export interface VoiceEstimateParams {
   voiceId: string;
@@ -91,6 +94,7 @@ export class Voice {
   /** Synthesize speech and return the generated clip. */
   async generate(params: VoiceGenerateParams, opts: RequestOptions = {}): Promise<AddisClip> {
     assertVoiceLanguage(params.language);
+    assertVoiceId(params.voiceId, params.language);
     const clientRequestId = params.clientRequestId ?? ulid();
     const body = {
       text: params.text,
@@ -110,9 +114,10 @@ export class Voice {
     return new AddisClip({ ...mapClip(data), clientRequestId }, this.transport.fetch);
   }
 
-  /** Yield MP3 phrases as they arrive. metadata is set after billing completes. */
-  async stream(params: VoiceGenerateParams, opts: RequestOptions = {}): Promise<AudioStream> {
-    assertVoiceLanguage(params.language);
+  /** Yield MP3 phrases as they arrive. metadata is set after billing completes. Covers am, om, ti and sw. */
+  async stream(params: VoiceStreamParams, opts: RequestOptions = {}): Promise<AudioStream> {
+    assertRealtimeLanguage(params.language);
+    assertVoiceId(params.voiceId, params.language);
     if (params.outputFormat && params.outputFormat !== "mp3_44100") throw new AddisAIError("voice.stream supports MP3. Use voice.generate for other formats.");
     const clientRequestId = params.clientRequestId ?? ulid();
     const { response, controller } = await this.transport.openStream({
@@ -136,6 +141,7 @@ export class Voice {
   /** Pre-flight cost estimate (and whether the wallet can cover it). */
   async estimate(params: VoiceEstimateParams, opts: RequestOptions = {}): Promise<VoiceEstimate> {
     assertVoiceLanguage(params.language);
+    assertVoiceId(params.voiceId, params.language);
     const body = {
       text: params.text,
       language: params.language,

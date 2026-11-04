@@ -2,11 +2,11 @@ import { camelize } from "../core/camelize.js";
 import { AddisAIError } from "../core/errors.js";
 import { ulid } from "../core/idempotency.js";
 import { type RequestOptions, type Transport, unwrapData } from "../core/request.js";
-import { assertVoiceLanguage, type Language } from "./shared.js";
+import { assertRealtimeLanguage, assertVoiceId, type RealtimeLanguage } from "./shared.js";
 
 export interface RealtimeSessionParams {
   voiceId: string;
-  language: Language;
+  language: RealtimeLanguage;
   /** mp3 (default), or wav_mp3 for early WAV pieces followed by MP3 phrases. */
   audioFormat?: "mp3" | "wav_mp3";
   /** Cumulative text budget for the ephemeral client. Default and maximum 5000. */
@@ -21,13 +21,13 @@ export interface RealtimeSession {
   expiresAt: number;
   sessionTtlSeconds: number;
   voiceId: string;
-  language: Language;
+  language: RealtimeLanguage;
   audioFormat: "mp3" | "wav_mp3";
   maxTextCharacters: number;
   maxAudioSeconds?: number;
 }
 export type RealtimeEvent =
-  | { type: "session.created"; session_id: string; voice_id: string; language: Language; audio_format: "mp3" | "wav_mp3"; max_text_characters: number }
+  | { type: "session.created"; session_id: string; voice_id: string; language: RealtimeLanguage; audio_format: "mp3" | "wav_mp3"; max_text_characters: number }
   | { type: "speech.started"; request_id: string }
   | { type: "audio.delta"; request_id: string; sequence: number; format: "mp3" | "wav"; audio: string }
   | { type: "speech.completed" | "speech.cancelled"; request_id: string; data: Record<string, unknown>; idempotent_replay?: boolean }
@@ -57,7 +57,8 @@ export class Realtime {
 
   /** Call on your server; return only this scoped, one-use ticket to the browser. */
   async createSession(params: RealtimeSessionParams, opts: RequestOptions = {}): Promise<RealtimeSession> {
-    assertVoiceLanguage(params.language);
+    assertRealtimeLanguage(params.language);
+    assertVoiceId(params.voiceId, params.language);
     const data = unwrapData(await this.transport.request({ method: "POST", path: "/api/v1/realtime/sessions",
       body: { voice_id: params.voiceId, language: params.language, audio_format: params.audioFormat ?? "mp3",
         max_text_characters: params.maxTextCharacters ?? 5000,
@@ -73,7 +74,7 @@ export class Realtime {
 
 /** Browser-safe connection helper. Needs only a ticket returned by your server. */
 export async function connectRealtime(session: RealtimeSession, options: RealtimeConnectOptions = {}): Promise<RealtimeConnection> {
-  assertVoiceLanguage(session.language);
+  assertRealtimeLanguage(session.language);
   const url = new URL(session.websocketUrl);
   if (url.username || url.password || url.search || url.hash ||
       (url.protocol !== "wss:" && !(url.protocol === "ws:" && ["localhost", "127.0.0.1"].includes(url.hostname)))) {
