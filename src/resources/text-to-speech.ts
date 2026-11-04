@@ -24,7 +24,6 @@ export class TextToSpeech {
     return this.voice.generate({ voiceId, ...params }, opts);
   }
 
-  /** Streaming covers am, om, ti and sw. */
   stream(voiceId: string, params: Omit<ConvertParams, "language"> & { language: RealtimeLanguage }, opts?: RequestOptions): Promise<AudioStream> {
     return this.voice.stream({ voiceId, ...params }, opts);
   }

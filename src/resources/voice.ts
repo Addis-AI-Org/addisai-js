@@ -30,7 +30,7 @@ export interface VoiceGenerateParams {
   clientRequestId?: string;
 }
 
-/** `voice.stream` parameters: streaming covers am, om, ti and sw. */
+/** `voice.stream` parameters: streaming covers every voice language. */
 export type VoiceStreamParams = Omit<VoiceGenerateParams, "language"> & { language: RealtimeLanguage };
 
 export interface VoiceEstimateParams {
@@ -114,7 +114,7 @@ export class Voice {
     return new AddisClip({ ...mapClip(data), clientRequestId }, this.transport.fetch);
   }
 
-  /** Yield MP3 phrases as they arrive. metadata is set after billing completes. Covers am, om, ti and sw. */
+  /** Yield MP3 phrases as they arrive. metadata is set after billing completes. */
   async stream(params: VoiceStreamParams, opts: RequestOptions = {}): Promise<AudioStream> {
     assertRealtimeLanguage(params.language);
     assertVoiceId(params.voiceId, params.language);
