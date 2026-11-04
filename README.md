@@ -1,6 +1,6 @@
 # addisai
 
-The official [Addis AI](https://addisassistant.com) SDK for Node.js — voice (text‑to‑speech), chat/LLM with system prompts, personas and function calling, speech‑to‑text, and translation, with examples for **Amharic (`am`)**, **Afaan Oromo (`om`)**, and **Tigrinya (`ti`)**.
+The official [Addis AI](https://addisassistant.com) SDK for Node.js — voice (text‑to‑speech), chat/LLM with system prompts, personas and function calling, speech‑to‑text, and translation, for **Amharic (`am`)**, **Afaan Oromo (`om`)**, **Tigrinya (`ti`)**, **Swahili (`sw`)**, **Hausa (`ha`)**, **Sidama (`sid`)** and **Wolaytta (`wal`)**.
 
 Designed to feel familiar if you've used other popular AI SDKs.
 
@@ -55,20 +55,42 @@ The API key is read from the `apiKey` option or the `ADDIS_API_KEY` environment 
 
 ## Languages
 
-| Language | Code | Example voice | Voice ID |
-| --- | --- | --- | --- |
-| Amharic | `am` | Hamen | `am-hamen` |
-| Afaan Oromo | `om` | Bikila | `om-bikila` |
-| Tigrinya | `ti` | Berhane | `ti-berhane` |
+<!-- languages:start -->
+| Language | Code | Voices (default first) | Streaming and real time | Scribe (speech-to-text) |
+| --- | --- | --- | --- | --- |
+| Amharic | `am` | `am-hamen` and 18 more (`voices.list({ language: "am" })`) | yes | yes, with speakers |
+| Afaan Oromo | `om` | `om-bikila`, `om-ayyaantuu`, `om-leensaa`, `om-hawi`, `om-diriba`, `om-leta`, `om-ebba`, `om-chala`, `om-obse` | yes | yes, with speakers |
+| Tigrinya | `ti` | `ti-berhane`, `ti-senait`, `ti-haben`, `ti-rahel`, `ti-filimon`, `ti-danait`, `ti-yonas` | yes | yes, with speakers |
+| Swahili | `sw` | `sw-rashid`, `sw-neema`, `sw-hassan`, `sw-bakari`, `sw-amina`, `sw-juma`, `sw-zainab` | yes | yes, no speakers |
+| Hausa | `ha` | `ha-mustapha`, `ha-sani`, `ha-usman`, `ha-musa` | not yet: use `voice.generate` | yes, with speakers |
+| Sidama | `sid` | `sid-tigist`, `sid-desta`, `sid-bereket`, `sid-selam`, `sid-alemu` | not yet: use `voice.generate` | yes, with speakers |
+| Wolaytta | `wal` | `wal-tona`, `wal-almaz`, `wal-amado`, `wal-gobe`, `wal-hiwot` | not yet: use `voice.generate` | yes, with speakers |
+<!-- languages:end -->
 
-Voice generation and real-time sessions support these three languages. Other
-language codes are rejected locally before any API request or socket connection.
-Use a matching language and voice ID. `voices.list` returns this three-language
-catalog so you can choose another available voice.
+`voice.generate`, `voice.estimate`, `textToSpeech.convert`, batches and `voices.list` take all seven languages.
+`voice.stream`, `textToSpeech.stream` and `realtime` take `am`, `om`, `ti` and `sw`. A voice ID is
+`<language>-<name>` and must match the request's `language` (`sid-tigist` with `language: "sid"`); anything else is
+rejected locally before any request or socket. `VOICES` and `DEFAULT_VOICES` mirror the public catalog for offline
+checks; `voices.list` is the source of truth and also returns each voice's name and preview.
 
-Tigrinya ships seven native voices: `ti-berhane` (default), `ti-senait`, `ti-haben`,
-`ti-rahel`, `ti-filimon`, `ti-danait` and `ti-yonas`. Tigrinya is also accepted by
-chat (`language: "ti"`), speech-to-text and translation below.
+```ts
+import AddisAI, { DEFAULT_VOICES } from "addisai";
+
+
+const addis = new AddisAI();
+const samples = {
+  sw: "Habari, karibu sana. Leo ni siku nzuri ya kujifunza kitu kipya pamoja.",
+  ha: "Barka da zuwa. Yau rana ce mai kyau don koyon sabon abu tare.",
+  sid: "Kunino babbaxxinno sidaamu budu tima, adonna shaanu babbaxxinno sidaamu budi sagale leeltawo yaate.",
+  wal: "Giyaa giddon daro asay shammes, baassi koshshiyabaa bayzzes.",
+} as const;
+for (const [language, text] of Object.entries(samples) as Array<[keyof typeof samples, string]>) {
+  const clip = await addis.voice.generate({ voiceId: DEFAULT_VOICES[language], text, language });
+  await clip.toFile(`${language}.mp3`);
+}
+```
+
+Chat and translation take `am`, `om` and `ti` (see below); Scribe takes all seven.
 
 ## Voice (text‑to‑speech)
 
@@ -154,7 +176,7 @@ a cumulative text budget. The socket lasts up to 10 minutes with one utterance
 at a time. Use `append()` plus `commit()` to buffer generated text for one turn.
 Cancellation mutes delivery; an already-started synthesis completes and is billed.
 
-Use any matching voice and language pair from the Languages table.
+Streaming and real time take `am`, `om`, `ti` and `sw`; use any matching voice and language pair from the Languages table.
 HTTP streams support MP3 only. For early
 WAV pieces, choose a `wav_mp3` socket session and consume `audio.delta` events
 with `decodeRealtimeAudio(event)`, playing according to `event.format`.
@@ -167,6 +189,7 @@ Run the same example with any of the documented languages:
 ADDIS_VOICE_LANGUAGE=am ADDIS_VOICE_ID=am-hamen node examples/realtime.mjs "ሰላም፣ እንኳን ወደ አዲስ ኤአይ በደህና መጡ።"
 ADDIS_VOICE_LANGUAGE=om ADDIS_VOICE_ID=om-bikila node examples/realtime.mjs "Nagaa, gara Addis AI baga nagaan dhuftan."
 ADDIS_VOICE_LANGUAGE=ti ADDIS_VOICE_ID=ti-berhane node examples/realtime.mjs "ሰላም፣ እንቋዕ ናብ ኣዲስ ኤኣይ ብደሓን መጻእኩም።"
+ADDIS_VOICE_LANGUAGE=sw ADDIS_VOICE_ID=sw-rashid node examples/realtime.mjs "Habari, karibu sana. Leo ni siku nzuri ya kujifunza kitu kipya pamoja."
 ```
 
 ### Migrating from another voice SDK
@@ -204,10 +227,9 @@ for await (const result of addis.batches.results(done.id)) {
 }
 ```
 
-Batches support the same languages and voices as `voice.generate`: Amharic
-(`am`), Afaan Oromo (`om`) and Tigrinya (`ti`, with any of its seven voices).
-Each request's `voiceId` must match its `language`; other languages are
-rejected locally before anything is uploaded.
+Batches support the same languages and voices as `voice.generate`: Amharic (`am`), Afaan Oromo (`om`), Tigrinya
+(`ti`), Swahili (`sw`), Hausa (`ha`), Sidama (`sid`) and Wolaytta (`wal`), with any voice from the Languages table.
+Each request's `voiceId` must match its `language`; other languages throw `AddisAIError` before anything is uploaded.
 
 Already have a JSONL file (`{"custom_id": "...", "body": {...}}` per line)? Use
 `files.upload(file)` then `batches.create({ inputFileId })`. `batches.cancel(id)`
@@ -405,7 +427,7 @@ extra. `toSrt()` and `toVtt()` format the segments locally, without another API 
 wrapping each cue at 42 characters per line and at most 2 lines.
 
 ```ts
-import { writeFile } from "node:fs/promises";
+
 import { fileFromPath, toSrt, toVtt, ulid } from "addisai";
 
 const result = await addis.scribe.transcribe({

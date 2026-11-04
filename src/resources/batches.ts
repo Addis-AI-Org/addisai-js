@@ -4,7 +4,7 @@ import { ulid } from "../core/idempotency.js";
 import { CursorPage, CursorPagePromise, type Page } from "../core/pagination.js";
 import type { RequestOptions, Transport } from "../core/request.js";
 import type { Files } from "./files.js";
-import { assertVoiceLanguage, type Language, type OutputFormat } from "./shared.js";
+import { assertVoiceId, assertVoiceLanguage, type Language, type OutputFormat } from "./shared.js";
 import type { VoiceSettings } from "./voice.js";
 
 export type BatchEndpoint = "/v1/voice/generations" | "/v1/scribe/transcribe";
@@ -302,6 +302,7 @@ export function toBatchJsonl(requests: BatchSpeechRequest[]): string {
         }
         seen.add(request.customId);
         assertVoiceLanguage(request.language);
+        assertVoiceId(request.voiceId, request.language);
         return JSON.stringify({
           custom_id: request.customId,
           body: {

@@ -44,8 +44,12 @@ export { connectRealtime, decodeRealtimeAudio, RealtimeConnection } from "./reso
 export type { RealtimeSession, RealtimeSessionParams, RealtimeEvent, RealtimeInput, RealtimeConnectOptions, RealtimeSocket } from "./resources/realtime.js";
 
 // Shared
+export { VOICE_LANGUAGES, REALTIME_LANGUAGES, VOICES, DEFAULT_VOICES } from "./resources/shared.js";
+export { SCRIBE_LANGUAGES } from "./resources/scribe.js";
 export type {
   Language,
+  RealtimeLanguage,
+  LegacyLanguage,
   ChatLanguage,
   OutputFormat,
   SttLanguage,
@@ -74,6 +78,7 @@ export type {
   VoiceEstimate,
   VoiceEstimateParams,
   VoiceGenerateParams,
+  VoiceStreamParams,
   VoiceSettings,
   VoiceUsage,
 } from "./resources/voice.js";

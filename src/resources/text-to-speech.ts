@@ -2,7 +2,7 @@ import type { RequestOptions } from "../core/request.js";
 import type { AddisClip } from "../lib/clip.js";
 import type { AudioStream } from "../lib/audio-stream.js";
 import type { Voice, VoiceSettings } from "./voice.js";
-import type { Language, OutputFormat } from "./shared.js";
+import type { Language, OutputFormat, RealtimeLanguage } from "./shared.js";
 
 /**
  * Familiar text-to-speech alias over `voice.*`, for developers migrating from
@@ -24,7 +24,8 @@ export class TextToSpeech {
     return this.voice.generate({ voiceId, ...params }, opts);
   }
 
-  stream(voiceId: string, params: ConvertParams, opts?: RequestOptions): Promise<AudioStream> {
+  /** Streaming covers am, om, ti and sw. */
+  stream(voiceId: string, params: Omit<ConvertParams, "language"> & { language: RealtimeLanguage }, opts?: RequestOptions): Promise<AudioStream> {
     return this.voice.stream({ voiceId, ...params }, opts);
   }
 }

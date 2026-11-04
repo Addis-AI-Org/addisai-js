@@ -5,8 +5,8 @@ import { once } from "node:events";
 const text = process.argv[2];
 if (!text) throw new Error('Usage: node examples/realtime.mjs "A complete sentence to speak"');
 const language = process.env.ADDIS_VOICE_LANGUAGE ?? "am";
-if (!["am", "om", "ti"].includes(language)) {
-  throw new Error("ADDIS_VOICE_LANGUAGE must be am, om, or ti.");
+if (!["am", "om", "ti", "sw"].includes(language)) {
+  throw new Error("ADDIS_VOICE_LANGUAGE must be am, om, ti or sw (real time). Use voice.generate for ha, sid and wal.");
 }
 const addis = new AddisAI(); // ADDIS_API_KEY
 let voiceId = process.env.ADDIS_VOICE_ID;

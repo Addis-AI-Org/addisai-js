@@ -11,6 +11,18 @@
   Speaker labels work in Hausa, Sidama and Wolaytta; Swahili has none (`languages.sw.speakers` is `false`).
 - `ScribeLanguage` is now `"am" | "om" | "ti" | "ha" | "sid" | "wal" | "sw"`. Without `language`, requests are Amharic,
   exactly as before.
+- **Voices in Swahili, Hausa, Sidama and Wolaytta:** `voice.generate`, `voice.estimate`, `textToSpeech.convert`,
+  batches, `voices.list` and `voice.clips.list` take `language: "sw"`, `"ha"`, `"sid"` and `"wal"` next to `am`, `om`
+  and `ti`. Voices: `sw-rashid` (default), `sw-neema`, `sw-hassan`, `sw-bakari`, `sw-amina`, `sw-juma`, `sw-zainab`;
+  `ha-mustapha` (default), `ha-sani`, `ha-usman`, `ha-musa`; `sid-tigist` (default), `sid-desta`, `sid-bereket`,
+  `sid-selam`, `sid-alemu`; `wal-tona` (default), `wal-almaz`, `wal-amado`, `wal-gobe`, `wal-hiwot`.
+- `voice.stream`, `textToSpeech.stream` and `realtime` take `am`, `om`, `ti` and `sw` (new type `RealtimeLanguage`,
+  params type `VoiceStreamParams`); `ha`, `sid` and `wal` throw locally with a pointer to `voice.generate`. The
+  deprecated `legacy.audio` keeps `am`, `om` and `ti` (`LegacyLanguage`).
+- A `voiceId` must be `<language>-<name>` and match the request's `language`; a mismatch throws `AddisAIError` before
+  any request. New exports `VOICE_LANGUAGES`, `REALTIME_LANGUAGES`, `SCRIBE_LANGUAGES`, `VOICES` and `DEFAULT_VOICES`;
+  `voices.list` stays the source of truth.
+- `voices.list` now returns voices in all seven languages (it used to drop anything outside `am`, `om` and `ti`).
 
 ## 0.12.0
 

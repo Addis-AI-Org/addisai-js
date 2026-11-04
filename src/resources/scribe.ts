@@ -27,6 +27,8 @@ export type ScribeTimestamps = "none" | "word";
  * `capabilities()`). Another code is passed to the API, which answers `422 UNSUPPORTED_LANGUAGE`.
  */
 export type ScribeLanguage = "am" | "om" | "ti" | "ha" | "sid" | "wal" | "sw";
+/** Every `ScribeLanguage`, Amharic first. */
+export const SCRIBE_LANGUAGES: readonly ScribeLanguage[] = ["am", "om", "ti", "ha", "sid", "wal", "sw"];
 /** One recognized word, in seconds from the start of the file. */
 export interface ScribeWord {
   text: string; start: number; end: number;
