@@ -22,13 +22,13 @@ export type ScribeChunk = "320ms" | "1120ms";
 export type ScribeTimestamps = "none" | "word";
 /**
  * Spoken language: `"am"` (Amharic, the default), `"om"` (Afaan Oromo), `"ti"` (Tigrinya), `"ha"` (Hausa), `"sid"`
- * (Sidama), `"wal"` (Wolaytta) or `"sw"` (Swahili). Every language but Amharic runs on the turbo backend only; the API
+ * (Sidama), `"wal"` (Wolaytta), `"sw"` (Swahili) or `"en"` (English). Every language but Amharic runs on the turbo backend only; the API
  * answers `422` for `backend: "standard"`. Swahili has no speaker labels (`languages.sw.speakers` is `false` in
  * `capabilities()`). Another code is passed to the API, which answers `422 UNSUPPORTED_LANGUAGE`.
  */
-export type ScribeLanguage = "am" | "om" | "ti" | "ha" | "sid" | "wal" | "sw";
+export type ScribeLanguage = "am" | "om" | "ti" | "ha" | "sid" | "wal" | "sw" | "en";
 /** Every `ScribeLanguage`, Amharic first. */
-export const SCRIBE_LANGUAGES: readonly ScribeLanguage[] = ["am", "om", "ti", "ha", "sid", "wal", "sw"];
+export const SCRIBE_LANGUAGES: readonly ScribeLanguage[] = ["am", "om", "ti", "ha", "sid", "wal", "sw", "en"];
 /** One recognized word, in seconds from the start of the file. */
 export interface ScribeWord {
   text: string; start: number; end: number;
@@ -50,7 +50,7 @@ export interface ScribeParams {
   requestId?: string;
   /**
    * A `ScribeLanguage`: `"am"` (Amharic), `"om"` (Afaan Oromo), `"ti"` (Tigrinya), `"ha"` (Hausa), `"sid"` (Sidama),
-   * `"wal"` (Wolaytta) or `"sw"` (Swahili); all but Amharic are turbo only. Sent only when set: the
+   * `"wal"` (Wolaytta), `"sw"` (Swahili) or `"en"` (English); all but Amharic are turbo only. Sent only when set: the
    * `language` query parameter for uploads, streams and jobs, a `language` field in the JSON body for live sessions.
    * Omitted means Amharic, as before.
    */
@@ -77,10 +77,10 @@ export interface ScribeTranscription {
    * `"addis-scribe-streaming"` for Amharic, `"addis-scribe-oromo-streaming"` for Afaan Oromo,
    * `"addis-scribe-tigrinya-streaming"` for Tigrinya, `"addis-scribe-hausa-streaming"` for Hausa,
    * `"addis-scribe-sidama-streaming"` for Sidama, `"addis-scribe-wolaytta-streaming"` for Wolaytta and
-   * `"addis-scribe-swahili-streaming"` for Swahili.
+   * `"addis-scribe-swahili-streaming"` for Swahili and `"addis-scribe-english-streaming"` for English.
    */
   model: string; usage: ScribeUsage; idempotentReplay?: boolean;
-  /** The transcribed language: Afaan Oromo results carry `"om"`, Tigrinya `"ti"`, Hausa `"ha"`, Sidama `"sid"`, Wolaytta `"wal"`, Swahili `"sw"`. */
+  /** The transcribed language: Afaan Oromo results carry `"om"`, Tigrinya `"ti"`, Hausa `"ha"`, Sidama `"sid"`, Wolaytta `"wal"`, Swahili `"sw"`, English `"en"`. */
   language?: ScribeLanguage;
   /** Number of pieces a long file was cut into; present for jobs (`mode: "job"`). */
   chunks?: number;
@@ -201,7 +201,7 @@ function timestampsQuery(value: ScribeTimestamps | undefined): { timestamps?: Sc
 /** `language` reaches the wire only when the caller sets it; omitted means Amharic and the request is unchanged. */
 function languageParam(value: unknown): { language?: string } {
   if (value === undefined) return {};
-  if (typeof value !== "string" || !value) throw new AddisAIError('Scribe language must be "am" (Amharic), "om" (Afaan Oromo), "ti" (Tigrinya), "ha" (Hausa), "sid" (Sidama), "wal" (Wolaytta) or "sw" (Swahili).');
+  if (typeof value !== "string" || !value) throw new AddisAIError('Scribe language must be "am" (Amharic), "om" (Afaan Oromo), "ti" (Tigrinya), "ha" (Hausa), "sid" (Sidama), "wal" (Wolaytta), "sw" (Swahili) or "en" (English).');
   return { language: value };
 }
 function speakersQuery(params: Pick<ScribeTranscribeParams, "backend" | "speakers">): { speakers?: "true" } {

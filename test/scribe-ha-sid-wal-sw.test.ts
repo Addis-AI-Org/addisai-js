@@ -27,8 +27,8 @@ const params = (s: Seen) => Object.fromEntries(s.url.searchParams);
 const audio = new Uint8Array([1, 2]);
 
 it("ScribeLanguage accepts every Scribe language", () => {
-  const all: ScribeLanguage[] = ["am", "om", "ti", "ha", "sid", "wal", "sw"];
-  expect(all).toHaveLength(7);
+  const all: ScribeLanguage[] = ["am", "om", "ti", "ha", "sid", "wal", "sw", "en"];
+  expect(all).toHaveLength(8);
 });
 
 describe.each(codes)("language %s", code => {
