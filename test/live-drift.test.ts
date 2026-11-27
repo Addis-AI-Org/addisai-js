@@ -13,7 +13,7 @@ describe.skipIf(process.env.ADDIS_DRIFT !== "1")("live API drift", () => {
   it("Scribe languages match the SDK", async () => {
     const live = (await get("/api/v1/scribe")).languages as Record<string, { speakers: boolean; backends: string[] }>;
     expect(Object.keys(live).sort()).toEqual([...SCRIBE_LANGUAGES].sort());
-    expect(Object.keys(live).filter((c) => !live[c]!.speakers)).toEqual(["sw"]);
+    expect(Object.keys(live).filter((c) => !live[c]!.speakers)).toEqual(["sw", "fr"]);
   });
 
   it("real-time languages match the SDK", async () => {

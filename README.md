@@ -347,8 +347,8 @@ Streaming is beta and not available with tools; non‑streaming is recommended f
 ## Addis Scribe
 
 Scribe transcribes **Amharic** (`am`, the default), **Afaan Oromo** (`om`), **Tigrinya** (`ti`), **Hausa** (`ha`),
-**Sidama** (`sid`), **Wolaytta** (`wal`) and **Swahili** (`sw`). Choose
-`backend: "turbo"` (default) or `backend: "standard"`; both bill the same character rate.
+**Sidama** (`sid`), **Wolaytta** (`wal`), **Swahili** (`sw`), **English** (`en`) and **French** (`fr`). Choose
+`backend: "turbo"` (default) or `backend: "standard"` (Amharic only); both bill the same character rate.
 Save a request ID before sending audio; recover it after an interrupted response.
 
 ```ts
@@ -420,6 +420,24 @@ const hausa = await addis.scribe.transcribe({
 });
 console.log(hausa.language, hausa.model); // ha addis-scribe-hausa-streaming
 const live = await addis.scribe.connect({ language: "sw", requestId: ulid() }); // live Swahili session
+```
+
+### English and French
+
+Pass `language: "en"` (English) or `language: "fr"` (French) to any Scribe call, as above. Both run on the turbo
+backend only and support word timestamps, captions and long files at the same rate. Speaker labels work in English,
+not in French. Scribe transcribes English and French only; there are no English or French voices.
+
+| Language | `language` | `model` in results |
+| --- | --- | --- |
+| English | `en` | `addis-scribe-english-streaming` |
+| French | `fr` | `addis-scribe-french-streaming` |
+
+```ts
+const french = await addis.scribe.transcribe({
+  audio: await fileFromPath("french.wav"), language: "fr", requestId: ulid(),
+});
+console.log(french.language, french.model); // fr addis-scribe-french-streaming
 ```
 
 ### Word timestamps and captions

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- **Scribe transcribes English:** pass `language: "en"` to `scribe.transcribe`, `scribe.stream`, `scribe.connect` /
+  `createSession` (live), `scribe.transcribeLong` and jobs. Results carry `"en"` and the model
+  `addis-scribe-english-streaming`. English runs on the turbo backend only, with speaker labels, word timestamps,
+  captions and long files, at the same per-character rate. `ScribeLanguage` and `SCRIBE_LANGUAGES` now include `"en"`.
+- **Scribe transcribes French:** pass `language: "fr"` to the same calls. Results carry `"fr"` and the model
+  `addis-scribe-french-streaming`. French runs on the turbo backend only, with word timestamps, captions and long files
+  at the same per-character rate, but no speaker labels. `ScribeLanguage` and `SCRIBE_LANGUAGES` now include `"fr"`.
+
 ## 0.14.0
 
 - **Streaming and real time in Hausa, Sidama and Wolaytta:** `voice.stream`, `textToSpeech.stream`,
